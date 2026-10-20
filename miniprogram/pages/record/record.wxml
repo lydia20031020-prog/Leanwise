@@ -1,0 +1,48 @@
+<include src="../../privacy.wxml"/>
+<view class="container">
+  <view class="title">{{editId ? '编辑食物记录' : '记录食物'}}</view>
+  <view class="subtitle">照片留作核对，补充文字后解析，再确认保存</view>
+  <view class="card" style="margin-top:28rpx">
+    <view class="nav"><button class="button" bindtap="takePhoto" disabled="{{busy || saved}}">拍照</button><button class="button secondary" bindtap="choosePhoto" disabled="{{busy || saved}}">从相册</button></view>
+    <image wx:if="{{imagePath}}" class="thumb" src="{{imagePath}}" mode="aspectFill" bindtap="previewImage"></image>
+    <button wx:if="{{imagePath}}" class="text-button" bindtap="removeImage" disabled="{{busy || saved}}">移除照片</button>
+    <view class="notice">当前 DeepSeek 模型不支持图片识别。照片只保存在本机；请补充食品和份量，AI 根据文字及你的食品记忆给出草稿。</view>
+    <textarea class="textarea" placeholder="例如：咖啡牛奶，牛奶 150ml，加一个煮鸡蛋。换品牌时请写清完整名称。" value="{{text}}" bindinput="onText" maxlength="8000" disabled="{{busy || saved}}"></textarea>
+    <button class="button" bindtap="analyze" loading="{{busy}}" disabled="{{busy || saved}}">{{busy ? '处理中…' : 'AI 解析文字'}}</button>
+    <button class="button secondary" bindtap="addItem" disabled="{{busy || saved}}">手动添加食品</button>
+    <picker wx:if="{{products.length}}" range="{{productNames}}" bindchange="selectProduct" disabled="{{busy || saved}}"><view class="picker-link">从我的食品库添加 ›</view></picker>
+    <view class="form-grid">
+      <view><view class="field-label">日期</view><picker mode="date" value="{{date}}" end="{{maxDate}}" bindchange="onDate"><view class="picker-input">{{date}}</view></picker></view>
+      <view><view class="field-label">时间</view><picker mode="time" value="{{time}}" bindchange="onTime"><view class="picker-input">{{time}}</view></picker></view>
+      <view><view class="field-label">餐次</view><picker range="{{mealTypes}}" bindchange="onMealType"><view class="picker-input">{{mealType}}</view></picker></view>
+    </view>
+  </view>
+  <view wx:if="{{draft.length}}" class="card">
+    <view class="section" style="margin:0">核对 {{draft.length}} 项食品</view>
+    <view wx:for="{{draft}}" wx:key="id" class="item">
+      <view class="row"><text class="muted">{{item.source}} · {{item.confidence}}</text><button class="text-button" data-index="{{index}}" bindtap="removeItem" disabled="{{busy || saved}}">移除</button></view>
+      <view class="field-label">食品全名（包括品牌）</view>
+      <input class="input" data-index="{{index}}" data-field="name" value="{{item.name}}" bindinput="editItem" placeholder="例如：我的某品牌纯牛奶" disabled="{{busy || saved}}"/>
+      <view class="form-grid">
+        <view><view class="field-label">本次份量</view><input class="input" type="digit" data-index="{{index}}" data-field="quantity" value="{{item.quantity}}" bindinput="editItem" disabled="{{busy || saved}}"/></view>
+        <view><view class="field-label">单位</view><picker range="{{units}}" data-index="{{index}}" bindchange="editUnit" disabled="{{busy || saved}}"><view class="picker-input">{{item.unit}}</view></picker></view>
+      </view>
+      <view class="muted" style="margin-top:14rpx">{{item.totals ? '本项热量：' + item.totals.kcal + ' kcal' : '请完成所有数值'}}</view>
+      <view class="field-label">营养基准：以下数值均为每 {{item.baseQuantity}}{{item.baseUnit}}</view>
+      <view class="form-grid">
+        <view><view class="field-label">基准份量 ({{item.baseUnit}})</view><input class="input" type="digit" data-index="{{index}}" data-field="baseQuantity" value="{{item.baseQuantity}}" bindinput="editItem" disabled="{{busy || saved}}"/></view>
+        <view><view class="field-label">热量 (kcal)</view><input class="input" type="digit" data-index="{{index}}" data-field="kcal" value="{{item.kcal}}" bindinput="editItem" disabled="{{busy || saved}}"/></view>
+        <view><view class="field-label">蛋白质 (g)</view><input class="input" type="digit" data-index="{{index}}" data-field="protein" value="{{item.protein}}" bindinput="editItem" disabled="{{busy || saved}}"/></view>
+        <view><view class="field-label">碳水 (g)</view><input class="input" type="digit" data-index="{{index}}" data-field="carbs" value="{{item.carbs}}" bindinput="editItem" disabled="{{busy || saved}}"/></view>
+        <view><view class="field-label">脂肪 (g)</view><input class="input" type="digit" data-index="{{index}}" data-field="fat" value="{{item.fat}}" bindinput="editItem" disabled="{{busy || saved}}"/></view>
+      </view>
+    </view>
+    <view wx:if="{{note}}" class="notice">{{note}}</view>
+    <view class="row" style="margin-top:22rpx"><text>记住确认后的食品营养</text><switch checked="{{remember}}" bindchange="toggleRemember" color="#1f83ff" disabled="{{busy || saved}}"></switch></view>
+    <view class="row" style="margin-top:22rpx"><text>另存为常用配方</text><switch checked="{{rememberRecipe}}" bindchange="toggleRecipe" color="#1f83ff" disabled="{{busy || saved}}"></switch></view>
+    <input wx:if="{{rememberRecipe}}" class="input" value="{{recipeName}}" bindinput="onRecipeName" placeholder="例如：咖啡牛奶" disabled="{{busy || saved}}"/>
+    <view class="notice">食品营养与本次份量分开保存。仅记录一餐不会更改常用配方；换品牌请改完整名称。历史记录保留当时的营养快照。</view>
+    <button class="button" bindtap="save" loading="{{busy}}" disabled="{{busy || saved}}">{{saved ? '已保存到本机' : '确认并保存到本机'}}</button>
+  </view>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+</view>

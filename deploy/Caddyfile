@@ -1,0 +1,12 @@
+# This is a single-site snippet, not a replacement for /etc/caddy/Caddyfile.
+# setup-server.sh merges an import while preserving the other sites.
+# API credentials belong only in /etc/leanwise/leanwise.env.
+www.leanwise.lydiaowo.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8787
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(self), microphone=()"
+    }
+}

@@ -1,0 +1,12 @@
+<view class="container">
+  <view class="title">AI 顾问</view><view class="subtitle">读取本机已保存的饮食、目标和体重数据</view>
+  <view class="notice">{{summary}} 缺少的资料会明确说明；未记完的日子不当作完整全天摄入。</view>
+  <view class="card" style="margin-top:28rpx">
+    <view wx:if="{{!answer}}" class="notice">可以问：下一餐如何安排？最近的记录有什么改善？体重有什么变化？</view>
+    <view wx:if="{{answer}}" class="answer"><text selectable="true">{{answer}}</text></view>
+    <textarea class="textarea" placeholder="问问你的真实数据…" value="{{question}}" bindinput="onQuestion" maxlength="3000" disabled="{{busy}}"></textarea>
+    <button class="button" bindtap="ask" loading="{{busy}}" disabled="{{busy}}">{{busy ? '顾问思考中…' : '发送问题'}}</button>
+    <view wx:if="{{error}}" class="error">{{error}}</view>
+  </view>
+  <view class="notice">顾问由 DeepSeek 处理你主动发送的记录摘要；照片不会发送。小米/华为演示数据会明确注明模拟，不作为真实健康判断依据。</view>
+</view>

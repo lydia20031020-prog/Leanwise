@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/record/record",
+    "pages/advisor/advisor",
+    "pages/goal/goal",
+    "pages/history/history"
+  ],
+  "window": {
+    "navigationBarTitleText": "Leanwise",
+    "navigationBarBackgroundColor": "#f7f8fb",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f7f8fb"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

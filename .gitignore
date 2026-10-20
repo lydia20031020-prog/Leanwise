@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+work/qa/
+private.*.key
+*.key
+*.pem
+miniprogram/project.private.config.json
+deploy/*.secret
+data/
+__pycache__/
+*.pyc

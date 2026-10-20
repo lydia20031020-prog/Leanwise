@@ -1,0 +1,32 @@
+<view class="container">
+  <view class="title">目标与体重</view><view class="subtitle">设定自己的目标，观察真实测量变化</view>
+  <view class="card" style="margin-top:28rpx">
+    <view class="section" style="margin-top:0">我的目标</view>
+    <view class="field-label">称呼（选填）</view><input class="input" data-field="name" value="{{profile.name}}" bindinput="onField"/>
+    <view class="form-grid">
+      <view><view class="field-label">每日摄入目标 (kcal)</view><input class="input" type="digit" data-field="dailyTarget" value="{{profile.dailyTarget}}" bindinput="onField"/></view>
+      <view><view class="field-label">目标体重 (kg，选填)</view><input class="input" type="digit" data-field="targetWeight" value="{{profile.targetWeight}}" bindinput="onField"/></view>
+      <view><view class="field-label">起始体重 (kg，选填)</view><input class="input" type="digit" data-field="startWeight" value="{{profile.startWeight}}" bindinput="onField"/></view>
+      <view><view class="field-label">年龄（估算需填写）</view><input class="input" type="number" data-field="age" value="{{profile.age}}" bindinput="onField"/></view>
+      <view><view class="field-label">身高 (cm，估算需填写)</view><input class="input" type="digit" data-field="height" value="{{profile.height}}" bindinput="onField"/></view>
+      <view><view class="field-label">代谢公式参数</view><picker range="{{sexLabels}}" value="{{sexIndex}}" bindchange="onSex"><view class="picker-input">{{sexLabels[sexIndex]}}</view></picker></view>
+    </view>
+    <view class="field-label">活动水平</view><picker range="{{activityLabels}}" value="{{activityIndex}}" bindchange="onActivity"><view class="picker-input">{{activityLabels[activityIndex]}}</view></picker>
+    <view class="notice">初始 1800 kcal 是可编辑的 Demo 默认值。估算使用 Mifflin–St Jeor 公式与活动系数；缺少身体资料时不会伪造消耗。顾问不会自动修改目标。</view>
+    <button class="button" bindtap="saveGoal">保存目标</button>
+  </view>
+  <view class="card">
+    <view class="section" style="margin-top:0">记录体重</view>
+    <view class="form-grid"><view><view class="field-label">体重 (kg)</view><input class="input" type="digit" value="{{weightValue}}" bindinput="onWeight" placeholder="例如 62.5"/></view><view><view class="field-label">测量日期</view><picker mode="date" value="{{weightDate}}" end="{{maxDate}}" bindchange="onWeightDate"><view class="picker-input">{{weightDate}}</view></picker></view></view>
+    <view class="muted" style="margin-top:14rpx">同一天再次保存会更新该日体重。</view><button class="button" bindtap="saveWeight">保存测量</button>
+  </view>
+  <view class="card">
+    <view class="section" style="margin-top:0">最近 14 次测量</view>
+    <view wx:if="{{!weights.length}}" class="notice">还没有体重记录。添加你的第一条真实测量。</view>
+    <canvas wx:if="{{weights.length}}" canvas-id="weight-trend" id="weight-trend" style="width:100%;height:180px"></canvas>
+    <view wx:if="{{weights.length}}" class="muted">{{chartRange}}</view>
+    <view wx:if="{{chartWeights.length > 1}}" class="notice">这段测量期间变化 {{delta > 0 ? '+' : ''}}{{delta}} kg。横轴为测量次序，短期体重波动不等于脂肪变化。</view>
+    <view wx:for="{{weights}}" wx:key="id" class="meal row"><text>{{item.date}} · {{item.value}} kg</text><button class="text-button" data-id="{{item.id}}" bindtap="removeWeight">删除</button></view>
+  </view>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+</view>

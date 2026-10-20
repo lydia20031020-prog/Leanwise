@@ -1,0 +1,28 @@
+<include src="../../privacy.wxml"/>
+<view class="container">
+  <view class="title">历史与备份</view><view class="subtitle">个人记录只保存在当前小程序本机</view>
+  <view class="card" style="margin-top:28rpx">
+    <picker mode="date" value="{{date}}" end="{{maxDate}}" bindchange="onDate"><view class="picker-input">{{date}} · 选择日期 ›</view></picker>
+    <view class="notice">当日已记录 {{totals.kcal}} kcal · 蛋白质 {{totals.protein}}g · 碳水 {{totals.carbs}}g · 脂肪 {{totals.fat}}g</view>
+    <view class="row" style="margin-top:20rpx"><text class="muted">这天的饮食已全部记完</text><switch checked="{{complete}}" bindchange="setComplete" color="#1f83ff"></switch></view>
+    <view wx:if="{{!records.length}}" class="notice">这天没有已保存的饮食记录。</view>
+    <view wx:for="{{records}}" wx:key="id" class="meal">
+      <view class="item-title">{{item.time}} · {{item.type || '加餐'}}</view><view style="margin-top:10rpx">{{item.title}} · {{item.kcal}} kcal</view>
+      <image wx:if="{{item.photo}}" class="history-thumb" src="{{item.photo}}" mode="aspectFill" data-path="{{item.photo}}" bindtap="previewPhoto"></image>
+      <view class="row"><button class="text-button" data-id="{{item.id}}" bindtap="editMeal">修改记录</button><button class="text-button" data-id="{{item.id}}" bindtap="removeMeal">删除</button></view>
+    </view>
+  </view>
+  <view class="card">
+    <view class="section" style="margin-top:0">我的食品与配方</view><view class="muted">已记住 {{products.length}} 项食品、{{recipes.length}} 个配方。记录页可从食品库添加并纠正营养。</view>
+    <view wx:for="{{recipes}}" wx:key="id" class="meal"><view class="item-title">{{item.name}}</view><view class="row"><button class="text-button" data-id="{{item.id}}" bindtap="useRecipe">再记一次</button><button class="text-button" data-id="{{item.id}}" bindtap="removeRecipe">删除配方</button></view></view>
+    <view wx:for="{{products}}" wx:key="id" class="meal"><view>{{item.name}}</view><view class="muted">{{item.kcal}} kcal / {{item.baseQuantity}}{{item.unit}}</view></view>
+  </view>
+  <view class="card">
+    <view class="section" style="margin-top:0">本机备份</view><view class="notice">复制文字备份后，请粘贴到你自己的安全位置保存。备份包含饮食和体重等个人数据；照片不包含在内。Web 与小程序分别记录，该备份用于恢复本小程序。</view>
+    <button class="button secondary" bindtap="exportData">复制记录备份</button>
+    <textarea class="textarea" value="{{importText}}" bindinput="onImport" maxlength="-1" placeholder="恢复时粘贴完整的备份 JSON"></textarea>
+    <button class="button secondary" bindtap="restoreData">从备份恢复</button>
+  </view>
+  <view class="card"><view class="section" style="margin-top:0">数据与隐私</view><view class="notice">相机/相册仅在你点击选择时使用。AI 解析主动发送文字和食品记忆；顾问发送本机记录摘要给 Leanwise 和 DeepSeek，照片不发送。不申请微信登录，不读取微信运动。清理小程序缓存或换设备可能丢失本机数据。</view><button class="text-button" bindtap="privacyContract">查看微信隐私指引</button><button class="text-button" bindtap="revokeConsent">撤回 AI 数据发送同意</button><button class="button danger" bindtap="clearData">清空本机全部数据</button></view>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+</view>

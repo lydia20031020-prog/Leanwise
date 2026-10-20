@@ -1,0 +1,250 @@
+<div id="leanwise-flow" aria-label="Leanwise 功能示意">
+  <div class="lw-phone">
+    <header class="lw-header">
+      <div><span class="lw-brand">Leanwise</span><span class="lw-sub">功能示意 · 示例数据</span></div>
+      <span class="lw-date">10 月 16 日</span>
+    </header>
+    <main>
+      <section data-screen="today">
+        <div class="lw-heading"><h2>今天怎么吃</h2><button class="lw-link cursor-interaction" type="button" data-go="coach">问问顾问</button></div>
+        <div class="lw-card lw-budget">
+          <span class="lw-muted">今日摄入目标 <span class="lw-inline" id="lw-budget-value">1,850 kcal</span></span>
+          <div class="lw-big"><span id="lw-remaining">1,400</span><span class="lw-unit">kcal 剩余预算</span></div>
+          <div class="lw-track"><span id="lw-intake-bar"></span></div>
+          <div class="lw-between lw-small"><span>已记录摄入 <strong id="lw-intake">450 kcal</strong></span><span>计划缺口 400 kcal</span></div>
+        </div>
+        <div class="lw-card">
+          <div class="lw-between"><h3>消耗依据</h3><span class="lw-small lw-muted" id="lw-energy-time">全天预计</span></div>
+          <div class="lw-segments" aria-label="消耗依据">
+            <button type="button" class="cursor-interaction is-active" data-energy="estimate" aria-pressed="true">身体数据估算</button>
+            <button type="button" class="cursor-interaction" data-energy="device" aria-pressed="false">设备同步</button>
+          </div>
+          <div id="lw-estimate"><div class="lw-energy"><strong>2,250</strong><span>kcal / 全天预计消耗</span></div><div class="lw-small lw-muted">基础代谢 1,500 × 活动系数 1.5</div></div>
+          <div id="lw-device" hidden>
+            <label class="lw-small" for="lw-source">数据来源</label><select id="lw-source" class="lw-select"><option value="xiaomi">小米运动健康</option><option value="huawei">华为运动健康</option></select>
+            <div class="lw-energy"><strong>472</strong><span>kcal / 已同步活动消耗</span></div><div class="lw-small lw-muted">统计截至 13:20 · 最近同步 13:25</div>
+          </div>
+          <p class="lw-small lw-muted" id="lw-energy-note">预算按全天计划制定。</p>
+        </div>
+        <div class="lw-macros" aria-label="今日已记录营养">
+          <div><span>蛋白质</span><strong id="lw-protein">30.0 g</strong></div><div><span>碳水</span><strong id="lw-carbs">40.0 g</strong></div><div><span>脂肪</span><strong id="lw-fat">19.0 g</strong></div>
+        </div>
+        <div class="lw-heading"><h3>今日记录</h3><button class="lw-link cursor-interaction" type="button" data-go="record">＋ 记录一餐</button></div>
+        <div id="lw-meals" class="lw-card lw-list"><div class="lw-between"><span>红薯 · 瘦肉 · 鸡蛋 · 生菜</span><strong>450 kcal</strong></div><span class="lw-small lw-muted">午餐 · 12:30</span></div>
+        <label class="lw-check"><input id="lw-complete" type="checkbox"><span>今日饮食已记录完整</span></label>
+      </section>
+      <section data-screen="record" hidden>
+        <div class="lw-heading"><h2>确认这餐</h2><span class="lw-small lw-muted">识别草稿</span></div>
+        <div class="lw-card lw-input-summary"><span class="lw-small lw-muted" id="lw-input-source">照片＋补充说明</span><p id="lw-input-text">300 ml 咖啡牛奶，其中牛奶 150 ml，另有一个煮鸡蛋。</p></div>
+        <div id="lw-memory-banner" class="lw-memory" hidden>已使用你确认的牛奶数据</div>
+        <div class="lw-card">
+          <div class="lw-between"><h3>我的全脂牛奶</h3><span class="lw-badge">标签已读取</span></div>
+          <div class="lw-fields">
+            <label for="lw-milk-qty">本次份量 · ml<input id="lw-milk-qty" type="number" min="1" max="2000" value="150" inputmode="decimal"></label>
+            <label for="lw-milk-label">标签热量 · kcal / 240 ml<input id="lw-milk-label" type="number" min="1" max="2000" value="160" inputmode="decimal"></label>
+          </div>
+          <div class="lw-between lw-small"><span class="lw-muted">蛋白质 9 g · 碳水 11 g · 脂肪 9 g / 240 ml</span><strong id="lw-milk-result">100 kcal</strong></div>
+        </div>
+        <div class="lw-card lw-list"><div class="lw-between"><span>黑咖啡 · 150 ml</span><strong>2 kcal</strong></div><div class="lw-between" id="lw-egg-row"><span>煮鸡蛋 · 1 个，约 50 g</span><strong>78 kcal</strong></div></div>
+        <div class="lw-total"><span>本餐合计</span><strong id="lw-meal-total">180 kcal</strong></div>
+        <p class="lw-small lw-muted">营养修正会记住；本次份量仅用于这餐。</p>
+        <label class="lw-check"><input id="lw-save-recipe" type="checkbox" checked><span>保存常用配方：牛奶 150 ml＋咖啡 150 ml</span></label>
+        <button id="lw-save" class="lw-primary cursor-interaction" type="button">确认并保存</button>
+        <button id="lw-repeat" class="lw-secondary cursor-interaction" type="button" hidden>再记一次“咖啡牛奶”</button>
+        <p id="lw-record-status" class="lw-small lw-muted" aria-live="polite"></p>
+      </section>
+      <section data-screen="goal" hidden>
+        <div class="lw-heading"><h2>目标与趋势</h2><span class="lw-small lw-muted">30 天</span></div>
+        <div class="lw-card"><div class="lw-between"><h3>体重趋势</h3><span class="lw-small lw-muted">kg</span></div>
+          <svg class="lw-chart" viewBox="0 0 340 210" role="img" aria-label="示例体重从69.5公斤降至68.4公斤，目标65公斤">
+            <title>示例体重趋势</title>
+            <path class="lw-grid" d="M38 35H312 M38 105H312 M38 175H312"></path>
+            <text x="7" y="39">70</text><text x="7" y="109">67.5</text><text x="7" y="179">65</text>
+            <path class="lw-target" d="M38 175H312"></path><text x="250" y="164">目标 65 kg</text>
+            <path class="lw-trend" d="M42 51L80 57L118 66L156 71L194 78L232 83L270 91L307 93"></path>
+            <g class="lw-point"><circle cx="42" cy="49" r="3"></circle><circle cx="80" cy="61" r="3"></circle><circle cx="118" cy="65" r="3"></circle><circle cx="156" cy="74" r="3"></circle><circle cx="194" cy="69" r="3"></circle><circle cx="232" cy="91" r="3"></circle><circle cx="270" cy="89" r="3"></circle><circle cx="307" cy="93" r="3"></circle></g>
+            <text x="38" y="199">9/17</text><text x="153" y="199">10/1</text><text x="275" y="199">10/16</text>
+          </svg>
+          <div class="lw-chart-legend lw-small"><span>● 测量点</span><span>— 趋势</span><span>┄ 目标</span></div>
+          <div class="lw-macros"><div><span>最新</span><strong>68.4 kg</strong></div><div><span>30 天变化</span><strong>−1.1 kg</strong></div><div><span>距目标</span><strong>3.4 kg</strong></div></div>
+        </div>
+        <div class="lw-card"><h3>当前计划</h3><div class="lw-between lw-list"><span>每日摄入目标</span><strong>1,850 kcal</strong></div><div class="lw-between lw-list"><span>目标体重</span><strong>65.0 kg</strong></div><p class="lw-small lw-muted">按趋势观察进度，体重波动也会受水分影响。</p></div>
+      </section>
+      <section data-screen="coach" hidden>
+        <div class="lw-heading"><h2>你的 AI 顾问</h2><span class="lw-badge">基于已记录数据</span></div>
+        <div class="lw-question">今天接下来怎么吃？</div>
+        <div class="lw-card lw-advice"><span class="lw-small lw-muted">引用：今日饮食 · 当前目标 · 13:30</span><p id="lw-coach-text"></p><p id="lw-coach-action"></p><details><summary class="cursor-interaction">查看数据依据</summary><div id="lw-coach-evidence" class="lw-small lw-list"></div></details></div>
+        <div class="lw-card"><h3>本周复盘需要什么？</h3><p class="lw-small lw-muted">完整记录天数、近 7 天摄入、体重趋势，以及消耗来源与覆盖情况。</p></div>
+      </section>
+    </main>
+    <div id="lw-toast" class="lw-toast" role="status" hidden></div>
+    <nav class="lw-nav" aria-label="主导航">
+      <button class="cursor-interaction is-active" type="button" data-go="today" aria-current="page"><i data-lucide="chart-pie" aria-hidden="true"></i><span>今日</span></button>
+      <button class="cursor-interaction" type="button" data-go="record"><i data-lucide="circle-plus" aria-hidden="true"></i><span>记录</span></button>
+      <button class="cursor-interaction" type="button" data-go="goal"><i data-lucide="target" aria-hidden="true"></i><span>目标</span></button>
+      <button class="cursor-interaction" type="button" data-go="coach"><i data-lucide="sparkles" aria-hidden="true"></i><span>顾问</span></button>
+    </nav>
+  </div>
+</div>
+<style>
+  #leanwise-flow { --lw-bg: light-dark(#f4f6f4,#161d19); --lw-card: light-dark(#ffffff,#222d26); --lw-fg: light-dark(#182a21,#edf5ef); --lw-muted: light-dark(#627469,#adc0b2); --lw-line: light-dark(#dbe4de,#3a4a40); --lw-accent: light-dark(#21704c,#8ed9b0); --lw-on-accent: light-dark(#ffffff,#142c20); --lw-soft: light-dark(#e8f3ec,#2c4436); --lw-input: light-dark(#f5f7f5,#19221c); --lw-track: light-dark(#e2e9e5,#35443b); --lw-radius: 20px; color: var(--lw-fg); font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.55; background:transparent; }
+  #leanwise-flow * { box-sizing:border-box; }
+  #leanwise-flow [hidden] { display:none !important; }
+  #leanwise-flow .lw-phone { max-width:440px; margin:0 auto; background:var(--lw-bg); border-radius:28px; overflow:hidden; border:1px solid var(--lw-line); }
+  #leanwise-flow .lw-header { padding:20px 22px 8px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  #leanwise-flow .lw-brand { display:block; font-size:20px; font-weight:500; letter-spacing:-.5px; }
+  #leanwise-flow .lw-sub,#leanwise-flow .lw-date { font-size:11px; color:var(--lw-muted); }
+  #leanwise-flow main { padding:8px 20px 12px; }
+  #leanwise-flow h2 { font-size:24px; line-height:1.2; font-weight:500; margin:0; }
+  #leanwise-flow h3 { font-size:15px; font-weight:500; margin:0; }
+  #leanwise-flow p { margin:12px 0 0; }
+  #leanwise-flow strong { font-weight:500; font-variant-numeric:tabular-nums; }
+  #leanwise-flow button { font-family:inherit; font-size:13px; }
+  #leanwise-flow .lw-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:16px 0; }
+  #leanwise-flow .lw-link { border:0; background:transparent; color:var(--lw-accent); padding:6px 0; flex-shrink:0; }
+  #leanwise-flow .lw-card { background:var(--lw-card); border-radius:var(--lw-radius); padding:18px; margin-bottom:14px; }
+  #leanwise-flow .lw-muted { color:var(--lw-muted); }
+  #leanwise-flow .lw-small { font-size:12px; }
+  #leanwise-flow .lw-inline { margin-left:8px; color:var(--lw-fg); font-variant-numeric:tabular-nums; }
+  #leanwise-flow .lw-budget { background:var(--lw-soft); }
+  #leanwise-flow .lw-big { display:flex; align-items:baseline; flex-wrap:wrap; gap:10px; margin:14px 0; }
+  #leanwise-flow .lw-big>span:first-child { font-size:44px; font-weight:500; line-height:1.05; letter-spacing:-1px; font-variant-numeric:tabular-nums; }
+  #leanwise-flow .lw-unit { font-size:12px; color:var(--lw-muted); }
+  #leanwise-flow .lw-track { height:7px; background:var(--lw-track); border-radius:7px; overflow:hidden; margin:16px 0 12px; }
+  #leanwise-flow .lw-track span { display:block; height:100%; width:24.3%; background:var(--lw-accent); border-radius:7px; transition:width .2s; }
+  #leanwise-flow .lw-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  #leanwise-flow .lw-segments { display:flex; background:var(--lw-input); border-radius:12px; padding:4px; gap:4px; margin:14px 0; }
+  #leanwise-flow .lw-segments button { flex:1; border:0; border-radius:9px; padding:10px 6px; background:transparent; color:var(--lw-muted); }
+  #leanwise-flow .lw-segments button.is-active { background:var(--lw-accent); color:var(--lw-on-accent); }
+  #leanwise-flow .lw-energy { display:flex; align-items:baseline; flex-wrap:wrap; gap:9px; margin:14px 0 6px; }
+  #leanwise-flow .lw-energy strong { font-size:30px; line-height:1.15; }
+  #leanwise-flow .lw-energy>span { color:var(--lw-muted); font-size:12px; }
+  #leanwise-flow .lw-select { width:100%; background:var(--lw-input); color:var(--lw-fg); font:inherit; border:1px solid var(--lw-line); border-radius:9px; padding:8px; margin-top:5px; }
+  #leanwise-flow .lw-macros { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:14px 0; }
+  #leanwise-flow .lw-macros>div { padding:12px 5px; background:var(--lw-card); border-radius:12px; text-align:center; }
+  #leanwise-flow .lw-macros span { display:block; color:var(--lw-muted); font-size:12px; }
+  #leanwise-flow .lw-macros strong { display:block; margin-top:5px; font-size:16px; }
+  #leanwise-flow .lw-list { display:grid; gap:9px; }
+  #leanwise-flow .lw-check { display:flex; gap:9px; align-items:center; font-size:12px; padding:8px 0; margin:4px 0; }
+  #leanwise-flow input[type=checkbox] { width:18px; height:18px; margin:0; flex-shrink:0; accent-color:var(--lw-accent); }
+  #leanwise-flow .lw-input-summary p { font-size:13px; }
+  #leanwise-flow .lw-badge { font-size:11px; color:var(--lw-accent); background:var(--lw-soft); padding:4px 8px; border-radius:8px; }
+  #leanwise-flow .lw-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:16px 0; }
+  #leanwise-flow .lw-fields label { font-size:11px; color:var(--lw-muted); }
+  #leanwise-flow .lw-fields input { width:100%; font-family:inherit; font-size:18px; color:var(--lw-fg); background:var(--lw-input); padding:10px; border:1px solid var(--lw-line); border-radius:10px; margin-top:7px; }
+  #leanwise-flow .lw-total { display:flex; justify-content:space-between; align-items:baseline; padding:8px 2px; gap:10px; }
+  #leanwise-flow .lw-total strong { font-size:27px; }
+  #leanwise-flow .lw-primary,#leanwise-flow .lw-secondary { width:100%; border:0; border-radius:13px; padding:13px; font-size:15px; margin-top:12px; }
+  #leanwise-flow .lw-primary { background:var(--lw-accent); color:var(--lw-on-accent); }
+  #leanwise-flow .lw-primary:disabled { opacity:.5; }
+  #leanwise-flow .lw-secondary { background:var(--lw-soft); color:var(--lw-accent); }
+  #leanwise-flow .lw-memory { background:var(--lw-soft); color:var(--lw-accent); padding:10px 14px; border-radius:12px; margin-bottom:14px; font-size:12px; }
+  #leanwise-flow .lw-nav { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:10px 12px 14px; background:var(--lw-card); border-top:1px solid var(--lw-line); }
+  #leanwise-flow .lw-nav button { display:grid; justify-items:center; gap:5px; border:0; background:transparent; color:var(--lw-muted); padding:8px 4px; font-size:11px; }
+  #leanwise-flow .lw-nav button.is-active { color:var(--lw-accent); }
+  #leanwise-flow .lw-nav svg { width:21px; height:21px; }
+  #leanwise-flow .lw-chart { display:block; width:100%; height:auto; margin-top:12px; }
+  #leanwise-flow .lw-chart text { fill:var(--lw-muted); font-size:11px; font-family:inherit; }
+  #leanwise-flow .lw-grid { stroke:var(--lw-line); stroke-width:1; fill:none; }
+  #leanwise-flow .lw-target { stroke:var(--lw-muted); stroke-width:1.5; stroke-dasharray:5 5; fill:none; }
+  #leanwise-flow .lw-trend { stroke:var(--lw-accent); stroke-width:2.5; fill:none; }
+  #leanwise-flow .lw-point { fill:var(--lw-accent); opacity:.7; }
+  #leanwise-flow .lw-chart-legend { display:flex; flex-wrap:wrap; gap:16px; color:var(--lw-muted); }
+  #leanwise-flow .lw-question { background:var(--lw-accent); color:var(--lw-on-accent); width:fit-content; margin:10px 0 16px auto; padding:12px 16px; border-radius:16px 16px 4px 16px; }
+  #leanwise-flow .lw-advice p { margin:14px 0; }
+  #leanwise-flow details { border-top:1px solid var(--lw-line); padding-top:12px; }
+  #leanwise-flow summary { color:var(--lw-accent); font-size:12px; padding:5px 0; }
+  #leanwise-flow .lw-toast { margin:0 20px 14px; padding:12px; background:var(--lw-soft); border-radius:12px; font-size:12px; }
+  #leanwise-flow .lw-toast button { border:0; padding:4px 8px; background:transparent; color:var(--lw-accent); }
+  @media(max-width:360px){#leanwise-flow main{padding:8px 14px 12px}#leanwise-flow .lw-header{padding:18px 16px 8px}#leanwise-flow .lw-card{padding:15px}#leanwise-flow .lw-fields{gap:8px}#leanwise-flow .lw-fields label{font-size:11px}#leanwise-flow h2{font-size:22px}#leanwise-flow .lw-macros{gap:7px}#leanwise-flow .lw-big>span:first-child{font-size:38px}}
+  @media(pointer:coarse){#leanwise-flow button,#leanwise-flow .lw-check,#leanwise-flow summary{min-height:44px}#leanwise-flow .lw-select{font-size:16px}}
+  @media(prefers-reduced-motion:reduce){#leanwise-flow .lw-track span{transition:none}}
+</style>
+<script>
+(() => {
+  const root = document.getElementById('leanwise-flow');
+  const $ = s => root.querySelector(s);
+  const $$ = s => [...root.querySelectorAll(s)];
+  const design = { radius:20, palette:'forest' };
+  const defaults = { screen:'today', energy:'estimate', source:'xiaomi', savedCalories:160, quantity:150, calories:160, saveRecipe:true, recipeQuantity:150, hasMemory:false, complete:false, meals:[], saved:false, egg:true };
+  let state = { ...defaults };
+  const fmt = n => new Intl.NumberFormat('en-US',{maximumFractionDigits:0}).format(n);
+  function valid(v) { return Number.isFinite(v) && v > 0 && v <= 2000; }
+  function subtotal() { return state.calories * state.quantity / 240 + 2 + (state.egg ? 78 : 0); }
+  function totals() { return state.meals.reduce((a,m)=>({kcal:a.kcal+m.kcal,p:a.p+m.p,c:a.c+m.c,f:a.f+m.f}),{kcal:450,p:30,c:40,f:19}); }
+  function persist() {
+    const snapshot = {modelContent:{view:state.screen,energySource:state.energy,device:state.source,milkLabelKcalPer240ml:state.savedCalories,confirmedMeals:state.meals.length},privateContent:state};
+    if(window.openai?.setWidgetState) window.openai.setWidgetState(snapshot).catch(()=>{});
+  }
+  function applySaved(w) {
+    const p = w?.privateContent;
+    if(!p || !Array.isArray(p.meals) || !valid(p.savedCalories)) return;
+    state={...defaults,...p,meals:p.meals.slice(0,8).filter(m=>Number.isFinite(m.kcal)&&m.kcal>0&&Number.isFinite(m.p)&&Number.isFinite(m.c)&&Number.isFinite(m.f))};
+    if(!['today','record','goal','coach'].includes(state.screen)) state.screen='today';
+    if(!['estimate','device'].includes(state.energy)) state.energy='estimate';
+    if(!['xiaomi','huawei'].includes(state.source)) state.source='xiaomi';
+    if(!valid(state.quantity)) state.quantity=150;
+    if(!valid(state.calories)) state.calories=160;
+    if(!valid(state.recipeQuantity)) state.recipeQuantity=150;
+  }
+  function render() {
+    root.style.setProperty('--lw-radius',design.radius+'px');
+    root.style.setProperty('--lw-accent',design.palette==='blue'?'light-dark(#166b9a,#8bcdf2)':'light-dark(#21704c,#8ed9b0)');
+    root.style.setProperty('--lw-soft',design.palette==='blue'?'light-dark(#e6f2f8,#293f4c)':'light-dark(#e8f3ec,#2c4436)');
+    $$('.lw-nav [data-go]').forEach(b=>{const on=b.dataset.go===state.screen;b.classList.toggle('is-active',on);on?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current');});
+    $$('[data-screen]').forEach(s=>s.hidden=s.dataset.screen!==state.screen);
+    $$('[data-energy]').forEach(b=>{const on=b.dataset.energy===state.energy;b.classList.toggle('is-active',on);b.setAttribute('aria-pressed',String(on));});
+    $('#lw-estimate').hidden=state.energy!=='estimate'; $('#lw-device').hidden=state.energy!=='device';
+    $('#lw-energy-time').textContent=state.energy==='estimate'?'全天预计':'截至当前';
+    $('#lw-energy-note').textContent=state.energy==='estimate'?'预算按全天计划制定。':'设备数据是活动热量估计，今日饮食预算仍按全天计划制定。';
+    $('#lw-source').value=state.source;
+    const t=totals();
+    $('#lw-intake').textContent=fmt(t.kcal)+' kcal'; $('#lw-remaining').textContent=fmt(1850-t.kcal);
+    $('#lw-intake-bar').style.width=Math.min(t.kcal/1850*100,100)+'%';
+    $('#lw-protein').textContent=t.p.toFixed(1)+' g'; $('#lw-carbs').textContent=t.c.toFixed(1)+' g'; $('#lw-fat').textContent=t.f.toFixed(1)+' g';
+    $('#lw-meals').replaceChildren();
+    const meals=[{name:'红薯 · 瘦肉 · 鸡蛋 · 生菜',kcal:450,note:'午餐 · 12:30'},...state.meals.map(m=>({...m,note:'已确认 · 示例记录'}))];
+    meals.forEach(m=>{const row=document.createElement('div');row.className='lw-list';const top=document.createElement('div');top.className='lw-between';const name=document.createElement('span');name.textContent=m.name;const kcal=document.createElement('strong');kcal.textContent=fmt(m.kcal)+' kcal';top.append(name,kcal);const note=document.createElement('span');note.className='lw-small lw-muted';note.textContent=m.note;row.append(top,note);$('#lw-meals').append(row);});
+    $('#lw-complete').checked=state.complete;
+    $('#lw-milk-qty').value=state.quantity;$('#lw-milk-label').value=state.calories;
+    $('#lw-milk-qty').disabled=state.saved;$('#lw-milk-label').disabled=state.saved;$('#lw-save-recipe').disabled=state.saved;
+    $('#lw-egg-row').hidden=!state.egg;
+    $('#lw-input-source').textContent=state.egg?'照片＋补充说明':'再次输入';
+    $('#lw-input-text').textContent=state.egg?'300 ml 咖啡牛奶，其中牛奶 150 ml，另有一个煮鸡蛋。':'“咖啡牛奶” → 你的常用配方';
+    $('#lw-save-recipe').checked=state.saveRecipe;
+    $('#lw-milk-result').textContent=valid(state.quantity)&&valid(state.calories)?fmt(state.calories*state.quantity/240)+' kcal':'请核对';
+    $('#lw-meal-total').textContent=valid(state.quantity)&&valid(state.calories)?fmt(subtotal())+' kcal':'—';
+    $('#lw-save').disabled=state.saved||!valid(state.quantity)||!valid(state.calories)||state.meals.length>=8;
+    $('#lw-save').textContent=state.saved?'这餐已保存':'确认并保存';
+    $('#lw-repeat').hidden=!state.hasMemory;
+    $('#lw-memory-banner').hidden=!state.hasMemory;
+    $('#lw-memory-banner').textContent='已使用你的牛奶数据：'+fmt(state.savedCalories)+' kcal / 240 ml';
+    $('#lw-record-status').textContent=state.saved?'本次 '+fmt(state.quantity)+' ml 已保存；常用牛奶份量为 '+fmt(state.recipeQuantity)+' ml。':(!valid(state.quantity)||!valid(state.calories)?'请输入 1–2,000 范围内的数值。':state.egg?'牛奶、咖啡与鸡蛋分别计算。':'新草稿使用你的牛奶数据与常用份量。');
+    $('#lw-coach-text').textContent='截至 13:30，你已记录 '+fmt(t.kcal)+' kcal，今日目标为 1,850 kcal，剩余预算约 '+fmt(1850-t.kcal)+' kcal。'+(state.complete?'你已标记今天记录完整；当前仍是下午，请核对这个标记是否符合实际。':'今天尚未标记记录完整，当前数据还不能用于判断全天摄入是否偏低。');
+    $('#lw-coach-action').textContent='下一餐可以结合你的剩余预算安排主食、蛋白质食物与蔬菜；继续记录后再复盘全天。';
+    $('#lw-coach-evidence').textContent='目标：1,850 kcal / 天；已记录 '+meals.length+' 餐；完整声明：'+(state.complete?'已标记':'未标记')+'；消耗视图：'+(state.energy==='device'?(state.source==='xiaomi'?'小米':'华为')+'活动热量 472 kcal，截至 13:20，13:25 同步':'身体数据估算，全天 2,250 kcal')+'。';
+  }
+  applySaved(window.openai?.widgetState);render();
+  let previousMemory=null;
+  $$('[data-go]').forEach(b=>b.addEventListener('click',()=>{state.screen=b.dataset.go;render();persist();}));
+  $$('[data-energy]').forEach(b=>b.addEventListener('click',()=>{state.energy=b.dataset.energy;render();persist();}));
+  $('#lw-source').addEventListener('change',e=>{state.source=e.target.value;render();persist();});
+  $('#lw-complete').addEventListener('change',e=>{state.complete=e.target.checked;render();persist();});
+  $('#lw-save-recipe').addEventListener('change',e=>{state.saveRecipe=e.target.checked;persist();});
+  function updateDraft(e,key) {state[key]=Number(e.target.value);state.saved=false;$('#lw-milk-result').textContent=valid(state.quantity)&&valid(state.calories)?fmt(state.calories*state.quantity/240)+' kcal':'请核对';$('#lw-meal-total').textContent=valid(state.quantity)&&valid(state.calories)?fmt(subtotal())+' kcal':'—';$('#lw-save').disabled=!valid(state.quantity)||!valid(state.calories)||state.meals.length>=8;$('#lw-save').textContent='确认并保存';$('#lw-record-status').textContent=valid(state.quantity)&&valid(state.calories)?'修改后请确认保存。':'请输入 1–2,000 范围内的数值。';}
+  $('#lw-milk-qty').addEventListener('input',e=>updateDraft(e,'quantity'));$('#lw-milk-label').addEventListener('input',e=>updateDraft(e,'calories'));
+  $('#lw-save').addEventListener('click',()=>{
+    if(state.saved||!valid(state.quantity)||!valid(state.calories)||state.meals.length>=8)return;
+    previousMemory={savedCalories:state.savedCalories,recipeQuantity:state.recipeQuantity,hasMemory:state.hasMemory};
+    const r=state.quantity/240;
+    state.meals.push({name:state.egg?'咖啡牛奶 · 煮鸡蛋':'咖啡牛奶',kcal:subtotal(),p:9*r+(state.egg?6.3:0),c:11*r+(state.egg?.6:0),f:9*r+(state.egg?5.3:0)});
+    state.savedCalories=state.calories;state.hasMemory=true;state.saved=true;state.complete=false;
+    if(state.saveRecipe) state.recipeQuantity=150;
+    $('#lw-toast').replaceChildren(); const msg=document.createElement('span');msg.textContent='已保存本餐，并记住牛奶营养数据。';const undo=document.createElement('button');undo.type='button';undo.className='cursor-interaction';undo.textContent='撤销记忆更新';undo.addEventListener('click',()=>{if(previousMemory){Object.assign(state,previousMemory);previousMemory=null;$('#lw-toast').hidden=true;render();persist();}});$('#lw-toast').append(msg,undo);$('#lw-toast').hidden=false;
+    render();persist();
+  });
+  $('#lw-repeat').addEventListener('click',()=>{state.quantity=state.recipeQuantity;state.calories=state.savedCalories;state.egg=false;state.saved=false;state.screen='record';$('#lw-toast').hidden=true;render();persist();});
+  window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState){applySaved(e.detail.globals.widgetState);render();}});
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSelect(design,'palette',{label:'主色',options:[{label:'自然绿',value:'forest'},{label:'清爽蓝',value:'blue'}]});tweak.addSlider(design,'radius',{label:'卡片圆角',min:8,max:24,unit:'px'});}
+})();
+</script>

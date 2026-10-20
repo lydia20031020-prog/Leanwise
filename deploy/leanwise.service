@@ -1,0 +1,24 @@
+[Unit]
+Description=Leanwise API and web frontend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/leanwise/current
+Environment=NODE_ENV=production
+Environment=LEANWISE_TRUST_PROXY=loopback
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+User=leanwise
+Group=leanwise
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

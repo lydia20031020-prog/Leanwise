@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="row"><view><view class="title">今日概览</view><view class="subtitle">Leanwise · 记录越多，越懂你</view></view><view class="badge">{{serviceLabel}}</view></view>
+  <view class="card" style="margin-top:28rpx">
+    <view class="row"><text class="section" style="margin:0">截至目前已记录</text><text class="muted">目标 {{target}} kcal</text></view>
+    <view class="grid" style="margin-top:18rpx"><view class="stat"><text class="muted">已摄入</text><text class="number">{{summary.kcal}}</text><text class="muted">kcal</text></view><view class="stat"><text class="muted">剩余预算</text><text class="number">{{remaining}}</text><text class="muted">kcal</text></view></view>
+    <view class="grid" style="margin-top:16rpx"><view class="stat"><text class="muted">蛋白质</text><text class="number">{{summary.protein}}</text><text class="muted">g</text></view><view class="stat"><text class="muted">碳水</text><text class="number">{{summary.carbs}}</text><text class="muted">g</text></view><view class="stat"><text class="muted">脂肪</text><text class="number">{{summary.fat}}</text><text class="muted">g</text></view></view>
+    <view class="row" style="margin-top:20rpx"><text class="muted">今天的饮食已全部记完</text><switch checked="{{complete}}" bindchange="setComplete" color="#1f83ff"></switch></view>
+  </view>
+  <view wx:if="{{recipes.length}}" class="card"><view class="section" style="margin-top:0">我的常用配方</view><button wx:for="{{recipes}}" wx:key="id" class="button secondary" data-id="{{item.id}}" bindtap="useRecipe">{{item.name}} · 再记一次</button></view>
+  <view class="card">
+    <view class="row"><text class="section" style="margin:0">今日记录</text><text class="muted">{{todayRecords.length}} 餐</text></view>
+    <view wx:if="{{!todayRecords.length}}" class="notice">还没有记录。可以拍照留作核对，补充文字或手动填写后保存。</view>
+    <view wx:for="{{todayRecords}}" wx:key="id" class="meal" data-id="{{item.id}}" bindtap="editMeal"><view class="row"><text class="item-title">{{item.title}}</text><text class="calories">{{item.kcal}} kcal</text></view><text class="muted">{{item.time}} · {{item.type || '加餐'}} · 点击修改</text></view>
+  </view>
+  <view class="card">
+    <view class="section" style="margin-top:0">消耗来源</view>
+    <view class="nav"><button class="button {{energyMode === 'estimate' ? '' : 'secondary'}}" data-mode="estimate" bindtap="setEnergyMode">身体估算</button><button class="button {{energyMode === 'device' ? '' : 'secondary'}}" data-mode="device" bindtap="setEnergyMode">设备演示</button></view>
+    <view class="subtitle" style="margin-top:22rpx">{{healthLabel}}</view><view class="muted">{{healthTime}}</view>
+    <view class="nav"><button class="button secondary" bindtap="syncXiaomi" disabled="{{syncing}}" loading="{{syncing}}">小米（演示）</button><button class="button secondary" bindtap="syncHuawei" disabled="{{syncing}}">华为（演示）</button></view>
+    <view class="notice">小米/华为当前为模拟数据，未读取真实账号，也不是实时消耗。活动热量与估算全天消耗含义不同，切换不改变摄入预算。</view>
+  </view>
+  <view class="nav"><button class="button" bindtap="goRecord">＋ 记录食物</button><button class="button secondary" bindtap="goAdvisor">问 AI 顾问</button></view>
+  <view class="nav"><button class="button secondary" bindtap="goGoal">目标与体重</button><button class="button secondary" bindtap="goHistory">历史与备份</button></view>
+  <view class="notice">饮食、食品记忆、配方、目标和体重保存到当前小程序本机。Web 与小程序记录各自独立，清除小程序数据会删除本机记录。</view>
+</view>

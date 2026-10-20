@@ -1,0 +1,25 @@
+{
+  "description": "Leanwise AI 减脂助手",
+  "packOptions": {
+    "ignore": [
+      { "type": "suffix", "value": ".key" },
+      { "type": "suffix", "value": ".pem" },
+      { "type": "suffix", "value": ".md" },
+      { "type": "file", "value": ".env" },
+      { "type": "folder", "value": "tests" }
+    ]
+  },
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "compileHotReLoad": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.12",
+  "appid": "wx5971d92eb86b0234",
+  "projectname": "leanwise-miniprogram",
+  "condition": {}
+}

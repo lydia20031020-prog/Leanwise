@@ -1,0 +1,11 @@
+<view wx:if="{{showPrivacy}}" class="privacy-overlay">
+  <view class="privacy-dialog">
+    <view class="section" style="margin-top:0">微信隐私授权</view>
+    <view class="muted">拍照、选择照片或复制备份需要你的同意。请先阅读</view>
+    <button class="text-button" bindtap="openPrivacyContract">《{{privacyContractName}}》</button>
+    <view class="notice">照片用于本机核对，备份仅在你点击时复制到剪贴板。你可以拒绝；仍可手动填写饮食记录。</view>
+    <view wx:if="{{privacyError}}" class="error">{{privacyError}}</view>
+    <button class="button" id="leanwise-privacy-agree" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="agreePrivacy">阅读并同意</button>
+    <button class="button secondary" bindtap="disagreePrivacy">暂不同意</button>
+  </view>
+</view>
