@@ -1,5 +1,6 @@
 param(
-    [string]$CommitMessage = 'Build Leanwise web and mini program demo'
+    [string]$CommitMessage = 'Build Leanwise web and mini program demo',
+    [switch]$PrepareOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
@@ -23,6 +24,7 @@ if ((& $taskGit branch --show-current) -ne 'main') { throw 'Publish from the mai
 Invoke-TaskGit config user.name 'lydia20031020-prog'
 Invoke-TaskGit config user.email 'lydia20031020-prog@users.noreply.github.com'
 Invoke-TaskGit config core.autocrlf false
+Invoke-TaskGit config core.quotepath false
 Invoke-TaskGit check-ignore .env private.wx5971d92eb86b0234.key node_modules dist
 Invoke-TaskGit add --all
 $trackedFiles = @(& $taskGit ls-files)
@@ -43,6 +45,10 @@ Invoke-TaskGit diff --cached --stat
 & $taskGit diff --cached --quiet
 if ($LASTEXITCODE -eq 1) { Invoke-TaskGit commit -m $CommitMessage }
 elseif ($LASTEXITCODE -ne 0) { throw 'Unable to inspect staged changes.' }
+if ($PrepareOnly) {
+    Write-Output 'Local files checked and committed. No remote changes made.'
+    return
+}
 
 $ghCommand = Get-Command gh.exe -ErrorAction SilentlyContinue
 $portableGh = Join-Path $env:USERPROFILE '.codex\tools\leanwise-gh\runtime\bin\gh.exe'
@@ -51,6 +57,7 @@ elseif (Test-Path -LiteralPath $portableGh) { $taskGh = $portableGh }
 if ($taskGh) {
     & $taskGh auth status --hostname github.com
     if ($LASTEXITCODE -ne 0) {
+        $env:GH_PROMPT_DISABLED = '1'
         & $taskGh auth login --hostname github.com --git-protocol https --web --skip-ssh-key
         if ($LASTEXITCODE -ne 0) { throw 'Complete GitHub login and retry.' }
     }
