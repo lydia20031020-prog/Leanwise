@@ -4,7 +4,7 @@
 
 ## 发布和上线
 
-- [腾讯云部署说明](deploy/README.md)：域名 `www.leanwise.lydiaowo.com`，服务器 `43.143.208.73`，含安装、密钥配置、更新、回滚与验收命令。
+- [腾讯云部署说明](deploy/README.md)：域名 `www.leanwise.lydiaowo.com`，服务器 `43.143.208.73`（Windows Server，PowerShell 脚本 `deploy/windows/leanwise.ps1`），含安装、密钥配置、更新、回滚与验收命令。
 - [微信小程序说明](miniprogram/README.md)：AppID `wx5971d92eb86b0234`，开发者工具导入、合法域名配置和预览上传。
 - GitHub 仓库：<https://github.com/lydia20031020-prog/Leanwise>。
 
