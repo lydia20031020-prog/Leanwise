@@ -20,7 +20,8 @@ elseif (Test-Path -LiteralPath $portableGit) { $taskGit = $portableGit }
 else { throw 'Install Git for Windows from https://git-scm.com/download/win and retry.' }
 
 function Invoke-TaskGit {
-    & $taskGit @args
+    # Portable MinGit has no pager; an interactive console would otherwise fail on diff/log.
+    & $taskGit --no-pager @args
     if ($LASTEXITCODE -ne 0) { throw "Git command failed: $($args[0])" }
 }
 
