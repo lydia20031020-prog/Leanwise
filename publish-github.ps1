@@ -5,6 +5,14 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
+# Git and gh ignore the Windows system proxy; pass it through for this process only.
+$inet = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+if (-not $env:HTTPS_PROXY -and $inet -and $inet.ProxyEnable -eq 1 -and $inet.ProxyServer -match '^[\w.-]+:\d+$') {
+    $env:HTTPS_PROXY = "http://$($inet.ProxyServer)"
+    $env:HTTP_PROXY = $env:HTTPS_PROXY
+    Write-Output "Using system proxy $($env:HTTPS_PROXY)"
+}
+
 $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
 $portableGit = Join-Path $env:USERPROFILE '.codex\tools\leanwise-git\runtime\cmd\git.exe'
 if ($gitCommand) { $taskGit = $gitCommand.Source }
