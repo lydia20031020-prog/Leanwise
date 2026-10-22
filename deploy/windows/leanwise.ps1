@@ -7,7 +7,11 @@ Leanwise 网站部署：Windows Server + 腾讯云「命令执行」（PowerShel
   ... -Action Verify | Status | Rollback
 
 布局：C:\Leanwise\{tools,releases,config,data,logs,service,state}
-服务：LeanwiseApi（Node，仅监听 127.0.0.1:8787）、LeanwiseCaddy（80/443，自动 HTTPS）
+服务：LeanwiseApi（Node，仅监听 127.0.0.1:8790）。
+HTTPS：
+  - 80/443 已由现有 Caddy 提供时：只在其 Caddyfile 末尾追加带 BEGIN/END 标记的本站块并平滑 reload，
+    不停止、不重启、不修改其他网站；运行配置与文件不一致时停止，不做修改。
+  - 80/443 空闲时：安装独立的 LeanwiseCaddy 服务。
 密钥只在 config\leanwise.env（仅 SYSTEM 与管理员可读），不进入仓库或网页。
 #>
 param(
@@ -17,6 +21,7 @@ param(
     [string]$Root = 'C:\Leanwise',
     [string]$Domain = 'www.leanwise.lydiaowo.com',
     [string]$ServerIp = '43.143.208.73',
+    [int]$ApiPort = 8790,
     [string]$Repo = 'lydia20031020-prog/Leanwise',
     [string]$Branch = 'main'
 )
@@ -66,6 +71,16 @@ $NpmCmd = Join-Path $NodeDir 'npm.cmd'
 $CaddyDir = Join-Path $ToolsDir "caddy-$($Pinned.Caddy.Version)"
 $CaddyExe = Join-Path $CaddyDir 'caddy.exe'
 $WinswExe = Join-Path $ToolsDir "winsw-$($Pinned.WinSW.Version).exe"
+$SharedAdminUrl = 'http://127.0.0.1:2019/config/'
+$ManagedPattern = '(?ms)^# BEGIN leanwise\b.*?^# END leanwise[^\r\n]*'
+
+# Compares two JSON files after sorting object keys; exit 0 when equal.
+$JsonEqualJs = @'
+const fs = require('fs');
+const sort = (v) => Array.isArray(v) ? v.map(sort) : (v && typeof v === 'object') ? Object.keys(v).sort().reduce((o, k) => { o[k] = sort(v[k]); return o; }, {}) : v;
+const load = (f) => { const t = fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, '').trim(); return sort(t ? JSON.parse(t) : null); };
+process.exit(JSON.stringify(load(process.argv[2])) === JSON.stringify(load(process.argv[3])) ? 0 : 1);
+'@
 
 function Write-Step([string]$Message) { Write-Host ''; Write-Host "== $Message" }
 function Write-Info([string]$Message) { Write-Host "   $Message" }
@@ -88,6 +103,18 @@ function Invoke-Native([string]$FilePath, [string[]]$Arguments) {
     $ErrorActionPreference = 'Continue'
     & $FilePath @Arguments 2>&1 | ForEach-Object { Write-Host "   $_" }
     return $LASTEXITCODE
+}
+
+# Captures raw stdout bytes to a file (no console code-page conversion).
+function Invoke-ToFile([string]$FilePath, [string[]]$Arguments, [string]$OutFile) {
+    $quoted = @($Arguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } })
+    $errFile = "$OutFile.err"
+    $process = Start-Process -FilePath $FilePath -ArgumentList $quoted -NoNewWindow -Wait -PassThru -RedirectStandardOutput $OutFile -RedirectStandardError $errFile
+    if ($process.ExitCode -ne 0 -and (Test-Path -LiteralPath $errFile)) {
+        Get-Content -LiteralPath $errFile -Encoding UTF8 | Select-Object -Last 15 | ForEach-Object { Write-Host "   $_" }
+    }
+    Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
+    return $process.ExitCode
 }
 
 function Save-Url([string]$Url, [string]$OutFile) {
@@ -125,6 +152,10 @@ function Get-VerifiedFile([hashtable]$Item, [string]$FileName) {
 function Expand-Zip([string]$Zip, [string]$Destination) {
     if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Recurse -Force }
     [IO.Compression.ZipFile]::ExtractToDirectory($Zip, $Destination)
+}
+
+function Test-OwnTool([string]$Path) {
+    return [bool]($Path -and $Path.StartsWith("$ToolsDir\", [StringComparison]::OrdinalIgnoreCase))
 }
 
 function Get-PortOwners([int[]]$Ports) {
@@ -177,20 +208,78 @@ function Assert-Platform {
     if ((Get-NetFrameworkRelease) -lt 394254) { throw '需要 .NET Framework 4.6.1 或更新版本（服务管理组件 WinSW 依赖）。' }
 }
 
-function Assert-PortsFree {
-    Write-Step '检查端口 80/443/2019/8787'
-    $conflicts = @(Get-PortOwners @(80, 443, 2019, 8787) | Where-Object { -not ($_.Path -and $_.Path -like "$ToolsDir\*") })
-    if ($conflicts.Count -eq 0) { Write-Info '未发现其他程序占用。'; return }
-    foreach ($item in $conflicts) { Write-Info "端口 $($item.Port) 被占用：PID $($item.Pid) $($item.Name) $($item.Path)" }
-    if ($conflicts | Where-Object { $_.Pid -eq 4 }) { Write-Info 'PID 4 是 Windows HTTP.sys，通常来自 IIS（W3SVC）或其他 HTTP 服务。' }
-    throw '端口已被其他程序占用。为避免影响现有网站，部署已停止，没有修改任何服务。'
+# Reads how an existing Caddy was launched. Without --config, Caddy loads
+# ./Caddyfile; the caller confirms the guess by comparing with the live config.
+function Get-CaddyLaunch([string]$CommandLine, [string]$ExePath) {
+    $tokens = @([regex]::Matches($CommandLine, '"([^"]*)"|(\S+)') | ForEach-Object { if ($_.Groups[1].Success) { $_.Groups[1].Value } else { $_.Groups[2].Value } })
+    $config = ''
+    $adapter = ''
+    for ($i = 1; $i -lt $tokens.Count; $i++) {
+        $token = $tokens[$i]
+        if (($token -eq '--config' -or $token -eq '-c') -and $i + 1 -lt $tokens.Count) { $i++; $config = $tokens[$i] }
+        elseif ($token -like '--config=*') { $config = $token.Substring(9) }
+        elseif ($token -eq '--adapter' -and $i + 1 -lt $tokens.Count) { $i++; $adapter = $tokens[$i] }
+        elseif ($token -like '--adapter=*') { $adapter = $token.Substring(10) }
+    }
+    if (-not $config) { $config = 'Caddyfile' }
+    if (-not [IO.Path]::IsPathRooted($config)) { $config = Join-Path (Split-Path -Parent $ExePath) $config }
+    $problem = ''
+    if ($adapter -and $adapter -ne 'caddyfile') { $problem = "现有 Caddy 使用 $adapter 格式配置，脚本只支持 Caddyfile。" }
+    elseif (-not $adapter -and $config -match '\.json$') { $problem = '现有 Caddy 使用 JSON 配置，脚本只支持 Caddyfile。' }
+    elseif (-not (Test-Path -LiteralPath $config -PathType Leaf)) { $problem = "找不到现有 Caddy 的配置文件 $config。" }
+    return [pscustomobject]@{ Config = $config; Problem = $problem }
+}
+
+# own: 80/443 free (or our LeanwiseCaddy); shared: an existing caddy.exe owns them.
+function Get-ProxyPlan([int[]]$WebPorts = @(80, 443)) {
+    $owners = @(Get-PortOwners $WebPorts)
+    $foreign = @($owners | Where-Object { -not (Test-OwnTool $_.Path) })
+    if ($foreign.Count -eq 0) {
+        $admin = @(Get-PortOwners @(2019) | Where-Object { -not (Test-OwnTool $_.Path) })
+        if ($admin.Count -gt 0) { return [pscustomobject]@{ Mode = 'blocked'; Reason = "端口 2019 被 PID $($admin[0].Pid) $($admin[0].Name) 占用。" } }
+        return [pscustomobject]@{ Mode = 'own' }
+    }
+    $pids = @($foreign | Select-Object -ExpandProperty Pid -Unique)
+    $process = $null
+    if ($pids.Count -eq 1 -and $owners.Count -eq $foreign.Count) { $process = Get-CimInstance Win32_Process -Filter "ProcessId=$($pids[0])" }
+    if (-not $process -or $process.Name -ne 'caddy.exe') {
+        $list = ($owners | ForEach-Object { "$($_.Port)=PID $($_.Pid) $($_.Name) $($_.Path)" }) -join '; '
+        return [pscustomobject]@{ Mode = 'blocked'; Reason = "80/443 被非 Caddy 程序占用：$list。PID 4 通常是 IIS/HTTP.sys。" }
+    }
+    $launch = Get-CaddyLaunch ([string]$process.CommandLine) ([string]$process.ExecutablePath)
+    return [pscustomobject]@{ Mode = 'shared'; Pid = $pids[0]; CaddyExe = [string]$process.ExecutablePath; ConfigPath = $launch.Config; Problem = $launch.Problem }
+}
+
+function Show-Plan($Plan) {
+    switch ($Plan.Mode) {
+        'own' { Write-Info '80/443 空闲：将安装独立的 LeanwiseCaddy 服务。' }
+        'shared' {
+            Write-Info "80/443 由现有 Caddy 提供：PID $($Plan.Pid) $($Plan.CaddyExe)"
+            Write-Info "配置文件：$($Plan.ConfigPath)"
+            if ($Plan.Problem) { Write-Info "无法自动加入：$($Plan.Problem)" }
+            else { Write-Info '部署时只在该文件末尾追加本站独立站点块并平滑 reload；不停止、不重启 Caddy，不修改其他网站。' }
+        }
+        'blocked' { Write-Info "无法部署：$($Plan.Reason)" }
+    }
+}
+
+function Assert-Plan($Plan) {
+    if ($Plan.Mode -eq 'blocked') { throw "$($Plan.Reason) 为避免影响现有网站，未做任何修改。" }
+    if ($Plan.Mode -eq 'shared' -and $Plan.Problem) { throw "$($Plan.Problem) 未做任何修改。" }
+}
+
+function Assert-ApiPortFree {
+    $conflicts = @(Get-PortOwners @($ApiPort) | Where-Object { -not (Test-OwnTool $_.Path) })
+    if ($conflicts.Count -gt 0) {
+        throw "端口 $ApiPort 被 PID $($conflicts[0].Pid) $($conflicts[0].Name) 占用。可加参数 -ApiPort 换一个空闲端口。未做任何修改。"
+    }
 }
 
 function Initialize-Layout {
     foreach ($dir in @($Root, $ToolsDir, $CacheDir, $ReleasesDir, $ConfigDir, $DataDir, $LogDir, $ServiceDir, $StateDir)) {
         if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
     }
-    # config holds the API key; data holds TLS private keys. SYSTEM + Administrators only.
+    # config holds the API key and Caddyfile backups; data holds TLS keys. SYSTEM + Administrators only.
     foreach ($dir in @($ConfigDir, $DataDir)) {
         $code = Invoke-Native (Join-Path $env:SystemRoot 'System32\icacls.exe') @($dir, '/inheritance:r', '/grant:r', '*S-1-5-18:(OI)(CI)F', '*S-1-5-32-544:(OI)(CI)F', '/Q')
         if ($code -ne 0) { throw "无法设置目录权限：$dir" }
@@ -200,7 +289,7 @@ function Initialize-Layout {
     }
 }
 
-function Install-Tools {
+function Install-Tools([bool]$WithCaddy) {
     Write-Step '准备运行环境（固定版本，SHA-256 校验）'
     if (-not (Test-Path -LiteralPath $NodeExe)) {
         $zip = Get-VerifiedFile $Pinned.Node "node-$($Pinned.Node.Version)-win-x64.zip"
@@ -210,12 +299,14 @@ function Install-Tools {
         Move-Item -LiteralPath (Join-Path $temp "node-$($Pinned.Node.Version)-win-x64") -Destination $NodeDir
         Remove-Item -LiteralPath $temp -Recurse -Force
     }
-    Write-Info "Node.js $(& $NodeExe --version)"
-    if (-not (Test-Path -LiteralPath $CaddyExe)) {
-        $zip = Get-VerifiedFile $Pinned.Caddy "caddy_$($Pinned.Caddy.Version)_windows_amd64.zip"
-        Expand-Zip $zip $CaddyDir
+    Write-Info "Node.js $(& $NodeExe --version)（独立安装，不影响服务器已有的 Node.js）"
+    if ($WithCaddy) {
+        if (-not (Test-Path -LiteralPath $CaddyExe)) {
+            $zip = Get-VerifiedFile $Pinned.Caddy "caddy_$($Pinned.Caddy.Version)_windows_amd64.zip"
+            Expand-Zip $zip $CaddyDir
+        }
+        Write-Info "Caddy $(& $CaddyExe version)"
     }
-    Write-Info "Caddy $(& $CaddyExe version)"
     if (-not (Test-Path -LiteralPath $WinswExe) -or (Get-FileHash -LiteralPath $WinswExe -Algorithm SHA256).Hash -ne $Pinned.WinSW.Sha256) {
         $file = Get-VerifiedFile $Pinned.WinSW 'WinSW.NET461.exe'
         Copy-Item -LiteralPath $file -Destination $WinswExe -Force
@@ -251,7 +342,7 @@ function New-Release {
     Move-Item -LiteralPath $inner[0].FullName -Destination $releaseDir
     Remove-Item -LiteralPath $extract -Recurse -Force
     Remove-Item -LiteralPath $zip -Force
-    foreach ($file in @('package.json', 'package-lock.json', 'server\index.js', 'deploy\Caddyfile')) {
+    foreach ($file in @('package.json', 'package-lock.json', 'server\index.js')) {
         if (-not (Test-Path -LiteralPath (Join-Path $releaseDir $file))) { throw "源码缺少 $file，请确认代码已推送到 $Branch。" }
     }
     if (Test-Path -LiteralPath (Join-Path $releaseDir '.env')) { throw '仓库包含 .env；请先从仓库移除真实密钥。' }
@@ -291,13 +382,13 @@ function Get-ApiServiceXml([string]$ReleaseDir) {
 <service>
   <id>$ApiService</id>
   <name>Leanwise API</name>
-  <description>Leanwise Node.js API and web frontend on 127.0.0.1:8787</description>
+  <description>Leanwise Node.js API and web frontend on 127.0.0.1:$ApiPort</description>
   <executable>$NodeExe</executable>
   <arguments>--env-file=$EnvFile $entry</arguments>
   <workingdirectory>$ReleaseDir</workingdirectory>
   <env name="NODE_ENV" value="production"/>
   <env name="HOST" value="127.0.0.1"/>
-  <env name="PORT" value="8787"/>
+  <env name="PORT" value="$ApiPort"/>
   <env name="LEANWISE_TRUST_PROXY" value="loopback"/>
   <startmode>Automatic</startmode>
   <onfailure action="restart" delay="5 sec"/>
@@ -314,7 +405,7 @@ function Get-CaddyServiceXml {
 <service>
   <id>$CaddyService</id>
   <name>Leanwise Caddy</name>
-  <description>HTTPS reverse proxy for $Domain to 127.0.0.1:8787</description>
+  <description>HTTPS reverse proxy for $Domain to 127.0.0.1:$ApiPort</description>
   <executable>$CaddyExe</executable>
   <arguments>run --config $CaddyFile --adapter caddyfile</arguments>
   <workingdirectory>$ConfigDir</workingdirectory>
@@ -328,6 +419,22 @@ function Get-CaddyServiceXml {
   <log mode="roll-by-size"><sizeThreshold>10240</sizeThreshold><keepFiles>5</keepFiles></log>
 </service>
 "@
+}
+
+function Get-SiteBlock([string]$NewLine) {
+    return (@(
+        "# BEGIN leanwise (managed by $Root\leanwise.ps1; other sites unchanged)",
+        "$Domain {",
+        "`tencode gzip",
+        "`treverse_proxy 127.0.0.1:$ApiPort",
+        "`theader {",
+        "`t`tX-Content-Type-Options nosniff",
+        "`t`tReferrer-Policy strict-origin-when-cross-origin",
+        "`t`tPermissions-Policy `"camera=(self), microphone=()`"",
+        "`t}",
+        '}',
+        '# END leanwise'
+    ) -join $NewLine)
 }
 
 # Returns $true when the service definition changed.
@@ -356,13 +463,15 @@ function Restart-LeanwiseService([string]$Id) {
     } elseif ($service.Status -ne 'Stopped') {
         Stop-Service -Name $Id -Force
     }
-    if ($Id -eq $ApiService) { Wait-PortFree 8787 }
+    if ($Id -eq $ApiService) { Wait-PortFree $ApiPort }
     Start-Service -Name $Id
 }
 
+function Get-LocalApiUrl { return "http://127.0.0.1:$ApiPort/api/status" }
+
 function Test-LocalApi {
     try {
-        return ((Invoke-WebRequest -Uri 'http://127.0.0.1:8787/api/status' -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200)
+        return ((Invoke-WebRequest -Uri (Get-LocalApiUrl) -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200)
     } catch { return $false }
 }
 
@@ -382,7 +491,7 @@ function Show-LogTail([string]$Name, [int]$Lines) {
 }
 
 function Switch-ApiRelease([string]$ReleaseDir) {
-    Write-Step '切换 API 服务'
+    Write-Step "切换 API 服务（127.0.0.1:$ApiPort）"
     $current = Get-State 'current'
     Write-ServiceFiles $ApiService (Get-ApiServiceXml $ReleaseDir) | Out-Null
     Restart-LeanwiseService $ApiService
@@ -403,12 +512,85 @@ function Switch-ApiRelease([string]$ReleaseDir) {
     throw '新版本未通过本机 API 检查，部署已停止。'
 }
 
-function Set-CaddySite([string]$ReleaseDir) {
-    Write-Step '配置 HTTPS（Caddy）'
+# Compares the running config of the existing Caddy with its Caddyfile.
+# Only when they are identical is a reload from the file safe for other sites.
+function Test-SharedCaddy($Plan) {
+    $live = Join-Path $ConfigDir 'caddy-live.json'
+    $fromFile = Join-Path $ConfigDir 'caddy-file.json'
+    $compare = Join-Path $StateDir 'json-equal.js'
+    try {
+        try {
+            Invoke-WebRequest -Uri $SharedAdminUrl -UseBasicParsing -TimeoutSec 10 -OutFile $live
+        } catch { throw "无法读取现有 Caddy 的运行配置（$SharedAdminUrl）：$($_.Exception.Message)。未做任何修改。" }
+        $code = Invoke-ToFile $Plan.CaddyExe @('adapt', '--config', $Plan.ConfigPath, '--adapter', 'caddyfile') $fromFile
+        if ($code -ne 0) { throw "现有 Caddyfile 无法解析：$($Plan.ConfigPath)。未做任何修改。" }
+        Write-Utf8 $compare $JsonEqualJs
+        $inSync = (Invoke-Native $NodeExe @($compare, $live, $fromFile)) -eq 0
+        $hasDomain = ([IO.File]::ReadAllText($live)).Contains('"' + $Domain + '"')
+        return [pscustomobject]@{ InSync = $inSync; HasDomain = $hasDomain }
+    } finally {
+        Remove-Item -LiteralPath $live, $fromFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Assert-SharedCaddyInSync($Plan) {
+    $state = Test-SharedCaddy $Plan
+    if (-not $state.InSync) {
+        throw "运行中的 Caddy 配置与 $($Plan.ConfigPath) 不一致（可能用了环境变量、--resume 或通过 API 改过）。直接 reload 可能影响其他网站，因此未做任何修改。"
+    }
+    return $state
+}
+
+function Set-SharedCaddySite($Plan) {
+    Write-Step "在现有 Caddy 中加入本站（$($Plan.ConfigPath)）"
+    $state = Assert-SharedCaddyInSync $Plan
+    # Latin-1 maps every byte to one char, so the original bytes (any encoding,
+    # BOM, line endings) are preserved exactly; only ASCII is appended.
+    $latin1 = [Text.Encoding]::GetEncoding(28591)
+    $originalBytes = [IO.File]::ReadAllBytes($Plan.ConfigPath)
+    $text = $latin1.GetString($originalBytes)
+    $newLine = "`n"
+    if ($text.Contains("`r`n")) { $newLine = "`r`n" }
+    $block = Get-SiteBlock $newLine
+    $regex = New-Object Text.RegularExpressions.Regex($ManagedPattern)
+    if ($regex.IsMatch($text)) {
+        $updated = $regex.Replace($text, $block.Replace('$', '$$'), 1)
+    } else {
+        if ($state.HasDomain) { throw "现有 Caddy 已配置 $Domain（不在 Leanwise 管理段内）。请先确认那段配置的用途；未做任何修改。" }
+        $updated = $text
+        if ($updated.Length -gt 0 -and -not $updated.EndsWith("`n")) { $updated += $newLine }
+        $updated += $newLine + $block + $newLine
+    }
+    if ($updated -ceq $text) { Write-Info '本站配置已存在且无变化，未修改 Caddy。'; return }
+
+    # Validate next to the original so relative imports resolve the same way.
+    $candidate = Join-Path (Split-Path -Parent $Plan.ConfigPath) ('.leanwise-candidate-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.caddyfile')
+    try {
+        [IO.File]::WriteAllBytes($candidate, $latin1.GetBytes($updated))
+        $code = Invoke-Native $Plan.CaddyExe @('validate', '--config', $candidate, '--adapter', 'caddyfile')
+        if ($code -ne 0) { throw '加入本站后的配置校验失败，现有 Caddy 配置未修改。' }
+    } finally {
+        Remove-Item -LiteralPath $candidate -Force -ErrorAction SilentlyContinue
+    }
+    $backupDir = Join-Path $ConfigDir 'caddy-backups'
+    if (-not (Test-Path -LiteralPath $backupDir)) { New-Item -ItemType Directory -Path $backupDir | Out-Null }
+    $backup = Join-Path $backupDir ('Caddyfile-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ'))
+    [IO.File]::WriteAllBytes($backup, $originalBytes)
+    [IO.File]::WriteAllBytes($Plan.ConfigPath, $latin1.GetBytes($updated))
+    $code = Invoke-Native $Plan.CaddyExe @('reload', '--config', $Plan.ConfigPath, '--adapter', 'caddyfile')
+    if ($code -ne 0) {
+        [IO.File]::WriteAllBytes($Plan.ConfigPath, $originalBytes)
+        throw "Caddy reload 失败，已恢复原 Caddyfile；运行中的配置未改变。备份：$backup"
+    }
+    Write-Info "已加入本站并平滑 reload，Caddy 未重启，其他网站配置未改。原文件备份：$backup"
+    if (-not (Test-SharedCaddy $Plan).InSync) { Write-Info '提示：reload 后运行配置与文件仍不一致，请运行 Status 查看。' }
+}
+
+function Set-OwnCaddySite {
+    Write-Step '配置 HTTPS（独立 LeanwiseCaddy 服务）'
     $env:XDG_DATA_HOME = $DataDir
     $env:XDG_CONFIG_HOME = $DataDir
-    $site = Read-Text (Join-Path $ReleaseDir 'deploy\Caddyfile')
-    if ($Domain -ne 'www.leanwise.lydiaowo.com') { $site = $site.Replace('www.leanwise.lydiaowo.com', $Domain) }
+    $site = (Get-SiteBlock "`n") + "`n"
     $candidate = Join-Path $ConfigDir 'Caddyfile.candidate'
     Write-Utf8 $candidate $site
     $code = Invoke-Native $CaddyExe @('validate', '--config', $candidate, '--adapter', 'caddyfile')
@@ -433,15 +615,11 @@ function Set-CaddySite([string]$ReleaseDir) {
         Show-LogTail "$CaddyService.err.log" 40
         throw 'Caddy 未能运行。'
     }
-    Write-Info 'Caddy 已运行。首次申请 HTTPS 证书可能需要 1-2 分钟。'
-}
-
-function Set-Firewall {
     $name = 'Leanwise HTTP/HTTPS'
     if (-not (Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue)) {
         New-NetFirewallRule -DisplayName $name -Direction Inbound -Protocol TCP -LocalPort 80, 443 -Action Allow -Profile Any | Out-Null
     }
-    Write-Info 'Windows 防火墙已允许入站 TCP 80/443。腾讯云安全组也需放行 80/443。'
+    Write-Info 'Caddy 已运行，Windows 防火墙已允许 80/443。首次申请 HTTPS 证书可能需要 1-2 分钟。'
 }
 
 function Remove-OldReleases {
@@ -458,7 +636,9 @@ function Remove-OldReleases {
 function Invoke-Verify {
     Write-Step '验收'
     $ok = $true
-    foreach ($id in @($ApiService, $CaddyService)) {
+    $ids = @($ApiService)
+    if (Get-Service -Name $CaddyService -ErrorAction SilentlyContinue) { $ids += $CaddyService }
+    foreach ($id in $ids) {
         $service = Get-Service -Name $id -ErrorAction SilentlyContinue
         $status = '未安装'
         if ($service) { $status = [string]$service.Status }
@@ -466,7 +646,7 @@ function Invoke-Verify {
         if ($status -ne 'Running') { $ok = $false }
     }
     try {
-        $local = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/api/status' -UseBasicParsing -TimeoutSec 10
+        $local = Invoke-WebRequest -Uri (Get-LocalApiUrl) -UseBasicParsing -TimeoutSec 10
         Write-Info "本机 API：$($local.Content)"
         if (-not ($local.Content | ConvertFrom-Json).configured) { Write-Info '尚未配置 DeepSeek 密钥：执行 SetKey 步骤。' }
     } catch {
@@ -488,7 +668,7 @@ function Invoke-Verify {
     if ($ok) {
         Write-Info '全部通过。请在浏览器完成一次文字解析、保存记录并刷新确认记录仍在。'
     } else {
-        Write-Info '未全部通过。常见原因：DNS 未生效、腾讯云安全组未放行 80/443、域名未备案被拦截、证书仍在申请。'
+        Write-Info '未全部通过。常见原因：证书仍在申请（等 1-2 分钟再 Verify）、DNS 未生效、域名未备案被拦截。'
         Show-LogTail "$CaddyService.err.log" 20
     }
     return $ok
@@ -504,14 +684,16 @@ function Invoke-Check {
     Write-Info "$($drive.Name): 可用 $([math]::Round($drive.Free / 1GB, 1)) GB（建议 >= 3 GB）"
     $existingNode = Get-Command node.exe -ErrorAction SilentlyContinue
     if ($existingNode) { Write-Info "已有 Node.js：$($existingNode.Source)（不会修改，Leanwise 使用独立版本）" }
-    Write-Info "curl.exe：$(Test-Path -LiteralPath (Join-Path $env:SystemRoot 'System32\curl.exe'))"
 
-    Write-Step '端口 80/443/2019/8787'
-    $owners = @(Get-PortOwners @(80, 443, 2019, 8787))
+    Write-Step "端口 80/443/2019/$ApiPort"
+    $owners = @(Get-PortOwners @(80, 443, 2019, $ApiPort))
     if ($owners.Count -eq 0) { Write-Info '均未被占用。' }
     foreach ($item in $owners) { Write-Info "$($item.Port)：PID $($item.Pid) $($item.Name) $($item.Path)" }
-    $iis = Get-Service -Name W3SVC -ErrorAction SilentlyContinue
-    if ($iis) { Write-Info "IIS (W3SVC)：$($iis.Status)" }
+    $apiConflict = @($owners | Where-Object { $_.Port -eq $ApiPort -and -not (Test-OwnTool $_.Path) })
+    if ($apiConflict.Count -gt 0) { Write-Info "端口 $ApiPort 已被占用，部署时需加参数 -ApiPort 换一个空闲端口。" }
+
+    Write-Step 'HTTPS 接入方式'
+    Show-Plan (Get-ProxyPlan)
 
     Write-Step 'DNS'
     $ips = Resolve-IPv4 $Domain
@@ -523,7 +705,6 @@ function Invoke-Check {
         "https://codeload.github.com/$Repo/zip/$Branch",
         $Pinned.Node.Urls[0],
         $Pinned.Node.Urls[1],
-        $Pinned.Caddy.Urls[0],
         $Pinned.WinSW.Urls[0],
         'https://registry.npmjs.org/express',
         'https://registry.npmmirror.com/express',
@@ -538,14 +719,12 @@ function Invoke-Status {
     Write-Step '服务与版本'
     foreach ($id in @($ApiService, $CaddyService)) {
         $service = Get-Service -Name $id -ErrorAction SilentlyContinue
-        $status = '未安装'
-        if ($service) { $status = [string]$service.Status }
-        Write-Info "$($id)：$status"
+        if ($service) { Write-Info "$($id)：$($service.Status)" }
     }
     Write-Info "当前版本：$(Get-State 'current')"
     Write-Info "上一版本：$(Get-State 'previous')"
-    Write-Step '端口'
-    foreach ($item in @(Get-PortOwners @(80, 443, 2019, 8787))) { Write-Info "$($item.Port)：PID $($item.Pid) $($item.Name) $($item.Path)" }
+    Write-Step 'HTTPS 接入方式'
+    Show-Plan (Get-ProxyPlan)
     Write-Step '最近日志'
     foreach ($name in @("$ApiService.out.log", "$ApiService.err.log", "$ApiService.wrapper.log", "$CaddyService.err.log")) { Show-LogTail $name 20 }
 }
@@ -572,7 +751,7 @@ function Invoke-SetKey {
         throw '服务重启失败，已恢复之前的配置。'
     }
     Write-Info '密钥已保存（不显示）。configured=true 只表示服务读到了配置，请在网页做一次真实文字解析确认密钥与余额正常。'
-    Write-Info (Invoke-WebRequest -Uri 'http://127.0.0.1:8787/api/status' -UseBasicParsing -TimeoutSec 10).Content
+    Write-Info (Invoke-WebRequest -Uri (Get-LocalApiUrl) -UseBasicParsing -TimeoutSec 10).Content
 }
 
 function Invoke-Rollback {
@@ -583,13 +762,20 @@ function Invoke-Rollback {
 }
 
 function Invoke-Deploy {
-    Assert-PortsFree
+    Write-Step '检查端口与现有网站'
+    $plan = Get-ProxyPlan
+    Show-Plan $plan
+    Assert-Plan $plan
+    Assert-ApiPortFree
     Initialize-Layout
-    Install-Tools
+    Install-Tools ($plan.Mode -eq 'own')
+    if ($plan.Mode -eq 'shared') {
+        Assert-SharedCaddyInSync $plan | Out-Null
+        Write-Info '现有 Caddy 运行配置与文件一致，可以安全追加。'
+    }
     $release = New-Release
     Switch-ApiRelease $release
-    Set-CaddySite $release
-    Set-Firewall
+    if ($plan.Mode -eq 'shared') { Set-SharedCaddySite $plan } else { Set-OwnCaddySite }
     # Keep the installed copy in step with the deployed revision.
     $fromRelease = Join-Path $release 'deploy\windows\leanwise.ps1'
     if (Test-Path -LiteralPath $fromRelease) { Copy-Item -LiteralPath $fromRelease -Destination (Join-Path $Root 'leanwise.ps1') -Force }
@@ -604,6 +790,7 @@ function Invoke-Main {
     if ($Domain -notmatch '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$' -or $Domain -notlike '*.*') { throw 'Domain 格式无效。' }
     if ($Repo -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repo 格式无效。' }
     if ($Branch -notmatch '^[A-Za-z0-9._/-]+$' -or $Branch -like '-*') { throw 'Branch 格式无效。' }
+    if ($ApiPort -lt 1024 -or $ApiPort -gt 65535 -or $ApiPort -eq 2019) { throw 'ApiPort 必须在 1024-65535 之间且不能是 2019。' }
     switch ($Action) {
         'Check' { Invoke-Check; return }
         'Status' { Invoke-Status; return }

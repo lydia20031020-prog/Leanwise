@@ -9,11 +9,16 @@
 
 部署脚本：[windows/leanwise.ps1](windows/leanwise.ps1)。它会：
 
-- 在 `C:\Leanwise` 下安装固定版本的 Node.js 22、Caddy 和 WinSW，下载后逐个校验 SHA-256；不修改服务器上已有的 Node.js。
+- 在 `C:\Leanwise` 下安装固定版本的 Node.js 22 和 WinSW，下载后逐个校验 SHA-256；不修改服务器上已有的 Node.js。
 - 从 GitHub 下载源码，执行 `npm ci`、测试和构建，全部通过后才切换版本。
-- 注册两个 Windows 服务：`LeanwiseApi`（仅监听 `127.0.0.1:8787`）和 `LeanwiseCaddy`（80/443，自动申请 HTTPS 证书）。
+- 注册 Windows 服务 `LeanwiseApi`，仅监听 `127.0.0.1:8790`（可用 `-ApiPort` 修改）。
 - 密钥只保存在 `C:\Leanwise\config\leanwise.env`，仅 SYSTEM 与管理员可读。
-- 若 80/443 已被 IIS 或其他程序占用，会在修改任何内容之前停止。
+
+HTTPS 接入按服务器现状自动选择：
+
+- **已有 Caddy 占用 80/443（当前服务器）**：只在它的 Caddyfile 末尾追加一段 `# BEGIN leanwise` … `# END leanwise` 的独立站点块，校验通过后 `caddy reload` 平滑生效。不停止、不重启 Caddy，不改动其他网站的任何一行。修改前备份原文件到 `C:\Leanwise\config\caddy-backups`。若 Caddy 运行中的配置与文件不一致（例如通过 API 改过），或文件里已有本域名，脚本会停止且不做修改。
+- **80/443 空闲**：安装独立的 `LeanwiseCaddy` 服务并开放防火墙 80/443。
+- **80/443 被 IIS 等其他程序占用**：在修改任何内容之前停止。
 
 腾讯云控制台进入此服务器的「命令执行」，命令类型选 **PowerShell**，执行用户保持默认（SYSTEM），超时设为 **3600 秒**。每个步骤单独创建一次任务。
 
@@ -40,7 +45,8 @@ exit $LASTEXITCODE
 
 脚本会显示系统版本、端口占用、DNS 和外网连通情况，不修改服务器。继续之前确认：
 
-- 80/443/2019/8787 均未被占用。若显示 PID 4 或 IIS（W3SVC）在运行，先确认这台服务器上没有需要保留的 IIS 网站。
+- 「HTTPS 接入方式」显示将追加到现有 Caddy（并给出配置文件路径），或安装独立 Caddy；没有显示「无法部署」。
+- 端口 8790 未被占用；若被占用，部署命令加 `-ApiPort 其他空闲端口`。
 - 域名解析到 `43.143.208.73`。
 - GitHub 与 nodejs.org（或 npmmirror）可访问。
 
@@ -89,7 +95,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File C:\Leanwise\leanwise.ps1 -Ac
 powershell -NoProfile -ExecutionPolicy Bypass -File C:\Leanwise\leanwise.ps1 -Action Rollback
 ```
 
-GitHub `main` 更新后重新执行第 2 步。新版本测试和构建通过、本机 API 启动成功后才切换；失败会自动恢复上一版本。保留最近 5 个版本，密钥与证书不受更新影响。日志位于 `C:\Leanwise\logs`。
+GitHub `main` 更新后重新执行第 2 步。新版本测试和构建通过、本机 API 启动成功后才切换；失败会自动恢复上一版本。保留最近 5 个版本，密钥与证书不受更新影响。日志位于 `C:\Leanwise\logs`。站点块无变化时更新不会 reload 现有 Caddy。
+
+若以后要从现有 Caddy 移除本站：删除 Caddyfile 中 `# BEGIN leanwise` 到 `# END leanwise` 之间的内容，再执行 `caddy reload --config 该文件 --adapter caddyfile`。
 
 ## Linux（Ubuntu / Debian）备用
 
