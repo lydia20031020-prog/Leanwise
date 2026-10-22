@@ -66,14 +66,6 @@ export interface Profile {
   targetDeficit: number;
 }
 
-export interface HealthSample {
-  source: 'xiaomi' | 'huawei';
-  activeCalories: number;
-  syncedAt: string;
-  coverageUntil: string;
-  demo: true;
-}
-
 export interface AppData {
   profile: Profile;
   meals: Meal[];
@@ -81,12 +73,11 @@ export interface AppData {
   recipes: Recipe[];
   weights: Weight[];
   completedDates: string[];
-  health: HealthSample[];
-  energyMode: 'estimate' | 'device';
-  healthSource: 'xiaomi' | 'huawei';
 }
 
-const STORAGE_KEY = 'leanwise-demo-v1';
+// The earlier demo build stored seeded sample records under 'leanwise-demo-v1';
+// a new key gives every visitor a clean start without reading those samples.
+export const STORAGE_KEY = 'leanwise-v1';
 const STORAGE_VERSION = 1;
 const SHANGHAI = 'Asia/Shanghai';
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -142,11 +133,8 @@ export function estimateTdee(profile: Profile, weight = profile.startWeight): nu
   return Math.round(bmr(profile, weight) * profile.activity);
 }
 
-function relativeDate(daysAgo: number): string {
-  const date = new Date(`${today()}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate() - daysAgo);
-  return date.toISOString().slice(0, 10);
-}
+/** A profile is usable once the user has entered weight and a daily budget. */
+export const profileReady = (profile: Profile): boolean => profile.dailyTarget > 0 && profile.startWeight > 0;
 
 function productItem(product: FoodProduct, quantity: number): MealItem {
   return {
@@ -157,57 +145,15 @@ function productItem(product: FoodProduct, quantity: number): MealItem {
   };
 }
 
+/** A new user starts empty: no sample meals, foods, recipes, weights or profile. */
 export function initialData(): AppData {
-  const products: FoodProduct[] = [
-    { id: 'milk-own', name: '我的全脂牛奶', brand: '示例标签', aliases: ['我的牛奶', '全脂牛奶', '牛奶'], unit: 'ml', baseQuantity: 240, kcal: 160, protein: 9, carbs: 11, fat: 9, source: '个人食品 · 示例营养标签（每 240 ml）', version: 1 },
-    { id: 'coffee', name: '无糖黑咖啡', aliases: ['黑咖啡', '美式咖啡', '咖啡'], unit: 'ml', baseQuantity: 100, kcal: 1, protein: 0.1, carbs: 0, fat: 0, source: '通用食品参考值', version: 1 },
-    { id: 'egg', name: '煮鸡蛋', aliases: ['煮鸡蛋', '水煮蛋', '鸡蛋'], unit: '个', baseQuantity: 1, kcal: 78, protein: 6.3, carbs: 0.6, fat: 5.3, source: '通用参考 · 可食部分约 50 g / 个', version: 1 },
-    { id: 'rice', name: '熟米饭', aliases: ['熟米饭', '米饭', '白饭'], unit: 'g', baseQuantity: 100, kcal: 116, protein: 2.6, carbs: 25.9, fat: 0.3, source: '通用食品参考值 · 熟重', version: 1 },
-    { id: 'sweet-potato', name: '蒸红薯', aliases: ['蒸红薯', '红薯', '地瓜'], unit: 'g', baseQuantity: 100, kcal: 86, protein: 1.6, carbs: 20.1, fat: 0.1, source: '通用食品参考值 · 熟重', version: 1 },
-    { id: 'chicken', name: '熟鸡胸肉', aliases: ['熟鸡胸肉', '鸡胸肉', '鸡肉'], unit: 'g', baseQuantity: 100, kcal: 165, protein: 31, carbs: 0, fat: 3.6, source: '通用食品参考值 · 未计额外烹饪油', version: 1 },
-    { id: 'pork', name: '瘦猪肉', aliases: ['瘦猪肉', '猪里脊', '猪肉'], unit: 'g', baseQuantity: 100, kcal: 143, protein: 20.3, carbs: 1.5, fat: 6.2, source: '通用食品参考值 · 未计额外烹饪油', version: 1 },
-    { id: 'salad', name: '生菜蔬菜', aliases: ['生菜蔬菜', '蔬菜沙拉', '沙拉', '生菜', '蔬菜'], unit: 'g', baseQuantity: 100, kcal: 25, protein: 1.5, carbs: 4, fat: 0.3, source: '通用食品参考值 · 不含沙拉酱', version: 1 },
-    { id: 'oil', name: '烹饪油', aliases: ['橄榄油', '食用油', '烹饪油', '油'], unit: 'g', baseQuantity: 100, kcal: 884, protein: 0, carbs: 0, fat: 100, source: '通用食品参考值', version: 1 },
-    { id: 'oats', name: '原味燕麦', aliases: ['原味燕麦', '燕麦片', '燕麦'], unit: 'g', baseQuantity: 100, kcal: 389, protein: 16.9, carbs: 66.3, fat: 6.9, source: '通用食品参考值 · 干重', version: 1 },
-    { id: 'tofu', name: '北豆腐', aliases: ['北豆腐', '豆腐'], unit: 'g', baseQuantity: 100, kcal: 81, protein: 8.1, carbs: 1.9, fat: 4.2, source: '通用食品参考值', version: 1 },
-    { id: 'yogurt', name: '原味酸奶', aliases: ['原味酸奶', '酸奶'], unit: 'g', baseQuantity: 100, kcal: 70, protein: 4, carbs: 7, fat: 2.8, source: '通用食品参考值', version: 1 },
-    { id: 'nuts', name: '混合坚果', aliases: ['混合坚果', '坚果'], unit: 'g', baseQuantity: 100, kcal: 600, protein: 20, carbs: 20, fat: 52, source: '通用食品参考值', version: 1 },
-  ];
-  const get = (id: string, amount: number) => productItem(products.find(product => product.id === id)!, amount);
-  const meals: Meal[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const date = relativeDate(i);
-    meals.push({ id: uid(), date, time: '08:15', type: '早餐', items: [get('milk-own', 150), get('coffee', 150), get('egg', 1), get('oats', 40 + (i % 3) * 5)], note: '演示记录 · 咖啡牛奶、鸡蛋和燕麦' });
-    meals.push({ id: uid(), date, time: '12:30', type: '午餐', items: [get('rice', 150 + (i % 3) * 15), get('chicken', 140), get('salad', 200), get('oil', 8)], note: '演示记录 · 烹饪油已单独计入' });
-    if (i > 0) {
-      meals.push({ id: uid(), date, time: '18:40', type: '晚餐', items: [get('sweet-potato', 200), get('tofu', 180), get('pork', 80), get('salad', 180), get('oil', 6)], note: '演示记录' });
-      meals.push({ id: uid(), date, time: '15:30', type: '加餐', items: [get('yogurt', 150), get('nuts', 20 + (i % 2) * 5)], note: '演示记录' });
-    }
-  }
-  const now = new Date();
-  const syncedAt = new Date(now.getTime() - 32 * 60 * 1000).toISOString();
-  const coverageUntil = new Date(now.getTime() - 45 * 60 * 1000).toISOString();
   return {
-    profile: { name: '林可', age: 28, height: 165, sex: 'female', activity: 1.5, startWeight: 68, targetWeight: 62, dailyTarget: 1750, targetDeficit: 300 },
-    meals,
-    products,
-    recipes: [{ id: 'coffee-milk', name: '咖啡牛奶', aliases: ['咖啡牛奶', '我的咖啡牛奶', '牛奶咖啡'], items: [get('milk-own', 150), get('coffee', 150)] }],
-    weights: [
-      { id: uid(), date: relativeDate(13), value: 68 },
-      { id: uid(), date: relativeDate(11), value: 67.8 },
-      { id: uid(), date: relativeDate(9), value: 67.9 },
-      { id: uid(), date: relativeDate(7), value: 67.5 },
-      { id: uid(), date: relativeDate(5), value: 67.6 },
-      { id: uid(), date: relativeDate(3), value: 67.3 },
-      { id: uid(), date: relativeDate(1), value: 67.2 },
-      { id: uid(), date: relativeDate(0), value: 67.3 },
-    ],
-    completedDates: Array.from({ length: 13 }, (_, i) => relativeDate(i + 1)).filter((_, i) => i !== 4 && i !== 9),
-    health: [
-      { source: 'xiaomi', activeCalories: 426, syncedAt, coverageUntil, demo: true },
-      { source: 'huawei', activeCalories: 398, syncedAt, coverageUntil, demo: true },
-    ],
-    energyMode: 'estimate', healthSource: 'xiaomi',
+    profile: { name: '', age: 0, height: 0, sex: 'female', activity: 1.375, startWeight: 0, targetWeight: 0, dailyTarget: 0, targetDeficit: 0 },
+    meals: [],
+    products: [],
+    recipes: [],
+    weights: [],
+    completedDates: [],
   };
 }
 
@@ -260,11 +206,6 @@ export function loadData(): AppData {
       weights: Array.isArray(data.weights) ? data.weights.filter(weight =>
         weight && typeof weight.id === 'string' && DATE_PATTERN.test(weight.date) && positive(weight.value)) : seed.weights,
       completedDates: Array.isArray(data.completedDates) ? data.completedDates.filter(date => typeof date === 'string' && DATE_PATTERN.test(date)) : [],
-      health: Array.isArray(data.health) ? data.health.filter(sample =>
-        sample && ['xiaomi', 'huawei'].includes(sample.source) && nonnegative(sample.activeCalories) &&
-        typeof sample.syncedAt === 'string' && typeof sample.coverageUntil === 'string' && sample.demo === true) : seed.health,
-      energyMode: data.energyMode === 'device' ? 'device' : 'estimate',
-      healthSource: data.healthSource === 'huawei' ? 'huawei' : 'xiaomi',
     };
   } catch {
     return seed;
@@ -449,7 +390,7 @@ export function resolveLocalMeal(text: string, data: AppData): { items: MealItem
   if (/炒|煎|炸|酱|糖|沙拉/.test(text) && !items.some(item => item.productId === 'oil')) {
     notes.push('烹饪油、糖和酱料未自动计入；如有使用，请补充。');
   }
-  notes.push('本地解析只覆盖示例食品，未识别的食物请手动补充；保存前逐项检查。');
+  notes.push('本地解析只匹配你保存过的食品，未识别的食物请手动补充；保存前逐项检查。');
   return { items, note: notes.join(' ') };
 }
 
@@ -463,18 +404,19 @@ export function advisorContext(data: AppData, date: string) {
   });
   const completeDays = recentDays.filter(day => day.complete && day.recordedMeals > 0);
   const latestWeight = [...data.weights].filter(weight => weight.date <= date).sort((a, b) => b.date.localeCompare(a.date))[0]?.value ?? data.profile.startWeight;
-  const selectedHealth = data.health.find(sample => sample.source === data.healthSource);
   const total = dayTotals(data, date);
+  const ready = profileReady(data.profile);
   return {
-    application: 'Leanwise 可运行演示',
-    dataset: '浏览器内的演示数据与用户后续手动记录；设备样本始终是模拟值，并非厂商真实授权数据',
+    application: 'Leanwise',
+    dataset: '用户在本机浏览器中手动记录的数据',
     currentTime: now,
     timezone: SHANGHAI,
     date,
     isComplete: data.completedDates.includes(date),
+    profileSet: ready,
     profile: data.profile,
     todayTotals: total,
-    remainingBudget: round(data.profile.dailyTarget - total.kcal),
+    remainingBudget: ready ? round(data.profile.dailyTarget - total.kcal) : null,
     meals: data.meals.filter(meal => meal.date === date).map(meal => ({
       id: meal.id, type: meal.type, time: meal.time, note: meal.note,
       totals: mealTotals(meal),
@@ -489,15 +431,12 @@ export function advisorContext(data: AppData, date: string) {
       fat: round(completeDays.reduce((sum, day) => sum + day.totals.fat, 0) / completeDays.length),
     } : null,
     weights: [...data.weights].filter(weight => weight.date <= date).sort((a, b) => a.date.localeCompare(b.date)).slice(-28),
-    energy: {
-      mode: data.energyMode,
+    energy: ready ? {
       estimatedBmr: bmr(data.profile, latestWeight),
       estimatedFullDayExpenditure: estimateTdee(data.profile, latestWeight),
       fullDayBudget: data.profile.dailyTarget,
-      budgetRule: '当前有效每日目标固定；切换设备视图不自动修改饮食预算',
-      selectedHealth: selectedHealth ?? null,
-      deviceRule: '设备展示模拟活动热量和覆盖截至时间，不是全天总消耗；不可叠加重复运动热量',
-    },
+      budgetRule: '每日目标由用户设定；估算消耗仅供参考，不自动修改饮食预算',
+    } : null,
     personalRecipes: data.recipes.map(recipe => ({ name: recipe.name, aliases: recipe.aliases, items: recipe.items.map(item => ({ name: item.name, quantity: item.quantity, unit: item.unit })) })),
     adviceRules: [
       '所有结论必须引用以上数据；不得编造记录。',
@@ -505,7 +444,7 @@ export function advisorContext(data: AppData, date: string) {
       '单日体重变化不能直接解释为脂肪变化。',
       '不要给固定低热量处方，也不要使用“节能模式”解释单日饮食。',
       '只能提出目标调整建议，不得自动修改目标。',
-      '演示设备数据只能说明界面流程，不能据此做真实健康判断。',
+      '若 profileSet 为 false，用户尚未设定目标：先建议用户设定目标，不要假设身高、体重或预算。',
     ],
   };
 }
