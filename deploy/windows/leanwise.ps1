@@ -7,7 +7,7 @@ Leanwise 网站部署：Windows Server + 腾讯云「命令执行」（PowerShel
   ... -Action Verify | Status | Rollback
 
 布局：C:\Leanwise\{tools,releases,config,data,logs,service,state}
-服务：LeanwiseApi（Node，仅监听 127.0.0.1:8790）。
+服务：LeanwiseApi（Node，仅监听 127.0.0.1，端口默认自动选 8790-8899 中的空闲端口并保存）。
 HTTPS：
   - 80/443 已由现有 Caddy 提供时：只在其 Caddyfile 末尾追加带 BEGIN/END 标记的本站块并平滑 reload，
     不停止、不重启、不修改其他网站；运行配置与文件不一致时停止，不做修改。
@@ -25,6 +25,7 @@ param(
     [string]$Repo = 'lydia20031020-prog/Leanwise',
     [string]$Branch = 'main'
 )
+$ApiPortExplicit = $PSBoundParameters.ContainsKey('ApiPort')
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -268,6 +269,28 @@ function Assert-Plan($Plan) {
     if ($Plan.Mode -eq 'shared' -and $Plan.Problem) { throw "$($Plan.Problem) 未做任何修改。" }
 }
 
+# Port order: -ApiPort, then the port saved by the last deploy, then the first
+# free port in 8790-8899 that no existing Caddy site proxies to.
+function Resolve-ApiPort {
+    if ($ApiPortExplicit) { return "指定（-ApiPort）" }
+    $saved = Get-State 'api-port'
+    if ($saved -match '^\d+$') {
+        $taken = @(Get-PortOwners @([int]$saved) | Where-Object { -not (Test-OwnTool $_.Path) }).Count -gt 0
+        if (-not ($taken -and $Action -eq 'Deploy')) { $script:ApiPort = [int]$saved; return '上次部署保存' }
+        Write-Host "上次使用的端口 $saved 已被其他程序占用，重新选择。"
+    }
+    $reserved = @()
+    try {
+        $live = (Invoke-WebRequest -Uri $SharedAdminUrl -UseBasicParsing -TimeoutSec 5).Content
+        $reserved = @([regex]::Matches($live, '"dial":"[^"]*:(\d+)"') | ForEach-Object { [int]$_.Groups[1].Value })
+    } catch { }
+    for ($port = 8790; $port -le 8899; $port++) {
+        if ($reserved -contains $port) { continue }
+        if (@(Get-PortOwners @($port) | Where-Object { -not (Test-OwnTool $_.Path) }).Count -eq 0) { $script:ApiPort = $port; return '自动选择的空闲端口' }
+    }
+    throw '8790-8899 没有空闲端口，请用 -ApiPort 指定。'
+}
+
 function Assert-ApiPortFree {
     $conflicts = @(Get-PortOwners @($ApiPort) | Where-Object { -not (Test-OwnTool $_.Path) })
     if ($conflicts.Count -gt 0) {
@@ -498,6 +521,7 @@ function Switch-ApiRelease([string]$ReleaseDir) {
     if (Wait-Api) {
         if ($current -and $current -ne $ReleaseDir) { Set-State 'previous' $current }
         Set-State 'current' $ReleaseDir
+        Set-State 'api-port' ([string]$ApiPort)
         Write-Info "本机 API 正常：$ReleaseDir"
         return
     }
@@ -791,6 +815,8 @@ function Invoke-Main {
     if ($Repo -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { throw 'Repo 格式无效。' }
     if ($Branch -notmatch '^[A-Za-z0-9._/-]+$' -or $Branch -like '-*') { throw 'Branch 格式无效。' }
     if ($ApiPort -lt 1024 -or $ApiPort -gt 65535 -or $ApiPort -eq 2019) { throw 'ApiPort 必须在 1024-65535 之间且不能是 2019。' }
+    $portSource = Resolve-ApiPort
+    Write-Host "Leanwise API 端口：127.0.0.1:$ApiPort（$portSource）"
     switch ($Action) {
         'Check' { Invoke-Check; return }
         'Status' { Invoke-Status; return }

@@ -11,7 +11,7 @@
 
 - 在 `C:\Leanwise` 下安装固定版本的 Node.js 22 和 WinSW，下载后逐个校验 SHA-256；不修改服务器上已有的 Node.js。
 - 从 GitHub 下载源码，执行 `npm ci`、测试和构建，全部通过后才切换版本。
-- 注册 Windows 服务 `LeanwiseApi`，仅监听 `127.0.0.1:8790`（可用 `-ApiPort` 修改）。
+- 注册 Windows 服务 `LeanwiseApi`，仅监听 `127.0.0.1`。端口自动从 8790–8899 中选一个空闲、且没有被现有 Caddy 站点使用的端口，并保存供以后更新、SetKey、Verify 沿用；也可用 `-ApiPort` 指定。
 - 密钥只保存在 `C:\Leanwise\config\leanwise.env`，仅 SYSTEM 与管理员可读。
 
 HTTPS 接入按服务器现状自动选择：
@@ -46,7 +46,7 @@ exit $LASTEXITCODE
 脚本会显示系统版本、端口占用、DNS 和外网连通情况，不修改服务器。继续之前确认：
 
 - 「HTTPS 接入方式」显示将追加到现有 Caddy（并给出配置文件路径），或安装独立 Caddy；没有显示「无法部署」。
-- 端口 8790 未被占用；若被占用，部署命令加 `-ApiPort 其他空闲端口`。
+- 第一行「Leanwise API 端口」显示一个空闲端口（自动选择）。
 - 域名解析到 `43.143.208.73`。
 - GitHub 与 nodejs.org（或 npmmirror）可访问。
 
